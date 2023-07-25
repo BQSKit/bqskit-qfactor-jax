@@ -16,7 +16,7 @@ from bqskit.utils.typing import is_integer
 from bqskit.utils.typing import is_valid_radixes
 from bqskit.ir.location import CircuitLocationLike
 from bqskit.ir.location import CircuitLocation
-from unitarymatrixjax import UnitaryMatrixJax
+from bqskitgpu.unitarymatrixjax import UnitaryMatrixJax
 
 logger = logging.getLogger(__name__)
 

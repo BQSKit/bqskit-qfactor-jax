@@ -18,9 +18,9 @@ from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from bqskit.ir.opt.instantiater import Instantiater
 from bqskit.qis.state.state import StateVector
 from bqskit.qis.state.system import StateSystem
-from unitary_acc import VariableUnitaryGateAcc
-from unitarybuilderjax import UnitaryBuilderJax
-from unitarymatrixjax import UnitaryMatrixJax
+from bqskitgpu.unitary_acc import VariableUnitaryGateAcc
+from bqskitgpu.unitarybuilderjax import UnitaryBuilderJax
+from bqskitgpu.unitarymatrixjax import UnitaryMatrixJax
 
 if TYPE_CHECKING:
     from bqskit.ir.circuit import Circuit

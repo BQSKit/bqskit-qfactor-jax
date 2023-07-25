@@ -8,7 +8,7 @@ from bqskit.ir.gates.parameterized.unitary import VariableUnitaryGate
 from bqskit.qis.unitary.unitary import RealVector
 from bqskit.qis.unitary.unitarymatrix import UnitaryLike
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
-from unitarymatrixjax import UnitaryMatrixJax
+from bqskitgpu.unitarymatrixjax import UnitaryMatrixJax
 
 
 class VariableUnitaryGateAcc(VariableUnitaryGate):
