@@ -12,11 +12,11 @@ from bqskit.ir.circuit import Circuit
 from bqskit.ir.gates import VariableUnitaryGate
 from bqskit.qis.unitary import UnitaryMatrix
 
-from bqskitgpu.qfactor_jax_batched_jit import QFactor_jax_batched_jit
+from bqskitgpu.qfactor_jax import QFactor_jax
 
 
 
-qfactr_gpu_instantiator = QFactor_jax_batched_jit(diff_tol_a = 0.0,
+qfactr_gpu_instantiator = QFactor_jax(diff_tol_a = 0.0,
         diff_tol_r = 1e-10,
         dist_tol = 1e-10,
         max_iters= 100000,

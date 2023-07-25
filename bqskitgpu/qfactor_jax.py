@@ -33,7 +33,7 @@ _logger = logging.getLogger(__name__)
 jax.config.update('jax_enable_x64', True)
 
 
-class QFactor_jax_batched_jit(Instantiater):
+class QFactor_jax(Instantiater):
     """The QFactor batch circuit instantiater."""
 
     def __init__(
