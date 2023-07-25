@@ -43,7 +43,7 @@ class QFactor_jax(Instantiater):
         dist_tol: float = 1e-10,
         max_iters: int = 100000,
         min_iters: int = 1000,
-        n: int = 40,
+        reset_iter: int = 40,
         plateau_windows_size: int = 8,
         diff_tol_step_r: float = 0.1,
         diff_tol_step: int = 200,
@@ -71,7 +71,7 @@ class QFactor_jax(Instantiater):
         self.dist_tol = dist_tol
         self.max_iters = max_iters
         self.min_iters = min_iters
-        self.n = n
+        self.reset_iter = reset_iter
         self.plateau_windows_size = plateau_windows_size
         self.diff_tol_step_r = diff_tol_step_r
         self.diff_tol_step = diff_tol_step
@@ -125,7 +125,7 @@ class QFactor_jax(Instantiater):
         num_starts: int,
     ) -> npt.NDArray[np.float64]:
         if len(circuit) == 0:
-            return circuit
+            return []
 
         circuit = circuit.copy()
 
@@ -165,7 +165,7 @@ class QFactor_jax(Instantiater):
 
         untrys = jnp.array(np.stack(untrys, axis=1))
         res_var = _sweep2_jited(
-            target, locations, gates, untrys, self.n, self.dist_tol,
+            target, locations, gates, untrys, self.reset_iter, self.dist_tol,
             self.diff_tol_a, self.diff_tol_r, self.plateau_windows_size,
             self.max_iters, self.min_iters, num_starts, self.diff_tol_step_r, self.diff_tol_step, self.beta
         )
