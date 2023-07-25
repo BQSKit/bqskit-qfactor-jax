@@ -16,14 +16,22 @@ from bqskitgpu.qfactor_jax import QFactor_jax
 
 
 
-qfactr_gpu_instantiator = QFactor_jax(diff_tol_a = 0.0,
-        diff_tol_r = 1e-10,
-        dist_tol = 1e-10,
-        max_iters= 100000,
-        min_iters = 10,
-        diff_tol_step_r = 0.1,
-        diff_tol_step = 200,
-        beta = 0.0)
+qfactr_gpu_instantiator = QFactor_jax(
+        dist_tol  = 1e-10,       # Stopping criteria for distance
+        max_iters = 100000,      # Maximum number of iterations
+        min_iters = 10,         # Minimum number of iterations
+        #One step plateau detection -
+        #diff_tol_a + diff_tol_r ∗ |c(i)| <= |c(i)|-|c(i-1)|
+        diff_tol_a = 0.0,       # Stopping criteria for distance change
+        diff_tol_r = 1e-10,     # Relative criteria for distance change
+        #Long plateau detection - 
+        # diff_tol_step_r*|c(i-diff_tol_step)| <= |c(i)|-|c(i-diff_tol_step)|
+        diff_tol_step_r = 0.1, #The relative improvment expected
+        diff_tol_step   = 200,   #The interval in which to check the improvment
+        #Regularization parameter - [0.0 - 1.0]
+        # Increase to overcome local minimumas at the price of longer compute
+        beta = 0.0
+        )
 
 
 
@@ -54,19 +62,8 @@ circuit.instantiate(
     toffoli,
     multistarts = 16,
     method=qfactr_gpu_instantiator,
-    # diff_tol_a=1e-12,   # Stopping criteria for distance change
-    # diff_tol_r=1e-6,    # Relative criteria for distance change
-    # dist_tol=1e-10,     # Stopping criteria for distance
-    # max_iters=100000,   # Maximum number of iterations
-    # min_iters=10,     # Minimum number of iterations
-    # beta=0,   # Larger numbers slowdown optimization
-    # # to avoid local minima
 )
 
 # Calculate and print final distance
 dist = circuit.get_unitary().get_distance_from(toffoli, 1)
 print('Final Distance: ', dist)
-
-# You can use synthesis to convert the `VariableUnitaryGate`s to
-# native gates. Alternatively, you can build a circuit directly out of
-# native gates and use the default instantiater to instantiate directly.
