@@ -1,8 +1,8 @@
 """
 Numerical Instantiation is the foundation of many of BQSKit's algorithms.
 
-This example demonstrates building a circuit template that can implement the
-toffoli gate and then instantiating it to be the gate.
+    This is the same instantiation example as in BQSKit using the GPU 
+    implementation of QFactor
 """
 from __future__ import annotations
 
@@ -17,17 +17,21 @@ from bqskitgpu.qfactor_jax import QFactor_jax
 
 
 qfactr_gpu_instantiator = QFactor_jax(
+        
         dist_tol  = 1e-10,       # Stopping criteria for distance
         max_iters = 100000,      # Maximum number of iterations
         min_iters = 10,         # Minimum number of iterations
+        
         #One step plateau detection -
         #diff_tol_a + diff_tol_r ∗ |c(i)| <= |c(i)|-|c(i-1)|
         diff_tol_a = 0.0,       # Stopping criteria for distance change
         diff_tol_r = 1e-10,     # Relative criteria for distance change
+        
         #Long plateau detection - 
         # diff_tol_step_r*|c(i-diff_tol_step)| <= |c(i)|-|c(i-diff_tol_step)|
         diff_tol_step_r = 0.1, #The relative improvment expected
         diff_tol_step   = 200,   #The interval in which to check the improvment
+        
         #Regularization parameter - [0.0 - 1.0]
         # Increase to overcome local minimumas at the price of longer compute
         beta = 0.0
