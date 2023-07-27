@@ -7,7 +7,7 @@ that utilizses Qfacto's GPU implementation
 import logging
 import os
 from timeit import default_timer as timer
-from bqskit import Circuit
+from bqskit import Circuit, compile
 from bqskit.compiler import Compiler, CompilationTask
 from bqskit.passes import QuickPartitioner
 from bqskit.passes import ForEachBlockPass
@@ -116,7 +116,7 @@ def run_gate_del_flow_example():
 
 
         # Create the compilation task
-        task = CompilationTask(in_circuit.copy(), passes)
+        
 
         with Compiler(
                 num_workers=amount_of_workers,
@@ -125,7 +125,7 @@ def run_gate_del_flow_example():
 
                 print(f"Starting gate deletion flow using Qfactor JAX")
                 start = timer()
-                out_circuit = compiler.compile(task)
+                out_circuit = compiler.compile(in_circuit, passes)
                 end = timer()
                 run_time = end - start
 
