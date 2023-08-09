@@ -21,7 +21,7 @@ def run_toffoli_instantiation(dist_tol_requested = 1e-10):
             dist_tol  = dist_tol_requested,       # Stopping criteria for distance
 
             max_iters = 100000,      # Maximum number of iterations
-            min_iters = 10,         # Minimum number of iterations
+            min_iters = 10,          # Minimum number of iterations
             
             #One step plateau detection -
             #diff_tol_a + diff_tol_r ∗ |c(i)| <= |c(i)|-|c(i-1)|
