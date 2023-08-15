@@ -45,6 +45,7 @@ class SingleLegSideTensor():
         
         #verify correct shape
         assert left.radixes == right.radixes
+        assert left.single_leg_radix == right.single_leg_radix, f'{left.single_leg_radix} != {right.single_leg_radix}'
 
         
         left_contraction_indexs = list(range(left.num_qudits+1))
