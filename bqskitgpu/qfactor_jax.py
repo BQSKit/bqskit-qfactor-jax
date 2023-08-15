@@ -693,6 +693,9 @@ def state_sample_sweep(N:int, target:UnitaryMatrixJax, locations, gates, untrys,
             print(f'{it = } {training_cost = }')
             print(f'{it = } {validation_cost = }')
 
+        if it > 10 and validation_cost/10 > training_cost:
+            print("Stopped due to no improvment in validation set")
+            break
         if training_cost <= dist_tol or it > 3000:
             print(f'{it = } {training_cost = }')
             break
@@ -797,7 +800,7 @@ for gate in gates:
 
 # %%
 # params = state_sample_sweep(4, target, locations, gates, pre_padding_untrys, num_qudits=2, radixes=(2,2),  dist_tol=1e-10,  beta=0)
-params = state_sample_sweep(8, target, locations, gates, pre_padding_untrys, num_qudits=3, radixes=(2,2,2),  dist_tol=1e-8,  beta=0)
+params = state_sample_sweep(10, target, locations, gates, pre_padding_untrys, num_qudits=3, radixes=(2,2,2),  dist_tol=1e-9,  beta=0)
 
 for op in circuit:
     g = op.gate
