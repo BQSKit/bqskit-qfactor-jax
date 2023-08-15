@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Sequence
 import numpy as np
 import numpy.typing as npt
 from scipy.stats import unitary_group
+import matplotlib.pyplot as plt
 
 import jax
 import jax.numpy as jnp
@@ -600,45 +601,70 @@ else:
 
 
 
-def state_sample_sweep(N:int, target:UnitaryMatrixJax, locations, gates, untrys, num_qudits, radixes,  dist_tol,
-                    #    , diff_tol_a,
-    # diff_tol_r, plateau_windows_size, max_iters, min_iters,
-    # amount_of_starts, diff_tol_step_r, diff_tol_step,
-    beta=0):
+def state_sample_sweep(N:int, target:UnitaryMatrixJax, locations, gates, untrys, num_qudits, radixes,  dist_tol, beta=0, training_states_kets = None, validation_states_kets = None):
 
+
+    training_costs = []
+    validation_costs = []
 
     amount_of_gates = len(gates)
 
-    #### Generate N random states
-    random_states_ket = []
-    random_states_bra = []
-    for _ in range(N):
-        # We generate a random unitary and take its first column
-        random_states_ket.append(unitary_group.rvs(np.prod(radixes))[:,:1])
-        random_states_bra.append(random_states_ket[-1].T.conj())
+    training_states_bras = []
+    if training_states_kets == None:
+        training_states_kets = []
+        for _ in range(N):
+            # We generate a random unitary and take its first column
+            training_states_kets.append(unitary_group.rvs(np.prod(radixes))[:,:1])    
+    else:
+        assert N==len(training_states_kets)
 
-    #### Compute A
-    A = RHSTensor(list_of_states = random_states_bra, num_qudits=num_qudits, radixes=radixes)
-    A.apply_left(target.T.conj(), range(num_qudits))
+    for ket in training_states_kets:
+        training_states_bras.append(ket.T.conj())
+
+    validation_states_bras = []
+    if validation_states_kets == None:
+        validation_states_kets = []
+        for _ in range(N//2):
+            # We generate a random unitary and take its first column
+            validation_states_kets.append(unitary_group.rvs(np.prod(radixes))[:,:1])    
+
+    for ket in validation_states_kets:
+        validation_states_bras.append(ket.T.conj())
+
+
+    
+
+    #### Compute As
+    target_dagger = target.T.conj()
+    A_train = RHSTensor(list_of_states = training_states_bras, num_qudits=num_qudits, radixes=radixes)
+    A_train.apply_left(target_dagger, range(num_qudits))
+
+    A_val = RHSTensor(list_of_states = validation_states_bras, num_qudits=num_qudits, radixes=radixes)
+    A_val.apply_left(target_dagger, range(num_qudits))
+
+    B0_train = LHSTensor(list_of_states = training_states_kets, num_qudits=num_qudits, radixes=radixes)
+    B0_val = LHSTensor(list_of_states = validation_states_kets, num_qudits=num_qudits, radixes=radixes)
 
     ### Until done....
     it = 1
     while True:
 
         ### Compute B
-        B = [LHSTensor(list_of_states = random_states_ket, num_qudits=num_qudits, radixes=radixes)]
+        
+        B = [B0_train]
         for location, utry in zip(locations[:-1], untrys[:-1]):
             B.append(B[-1].copy())
             B[-1].apply_right(utry, location)
 
         temp = B[-1].copy()
         temp.apply_right(untrys[-1], locations[-1])
-        cost = 2*(1-jnp.real(SingleLegSideTensor.calc_env(temp, A, [])[0])/N)
+        training_cost = 2*(1-jnp.real(SingleLegSideTensor.calc_env(temp, A_train, [])[0])/N)
         # print(f'initial {cost = }')
 
         ### iterate over every gate from right to left and update it
         new_untrys = [None]*amount_of_gates
-        a:RHSTensor = A.copy()
+        a_train:RHSTensor = A_train.copy()
+        a_val:RHSTensor = A_val.copy()
         for idx in reversed(range(amount_of_gates)):
             b = B[idx]
             gate = gates[idx]
@@ -646,26 +672,48 @@ def state_sample_sweep(N:int, target:UnitaryMatrixJax, locations, gates, untrys,
             utry = untrys[idx]
             if gate.num_params > 0:
                 # print(f"Updating {utry._utry = }")
-                env = SingleLegSideTensor.calc_env(b, a, location)
+                env = SingleLegSideTensor.calc_env(b, a_train, location)
                 utry = gate.optimize(env.T, get_untry=True, prev_utry=utry, beta=beta)
                 # print(f"to {utry._utry = }")
             
             new_untrys[idx] = utry
-            a.apply_left(utry, location)
+            a_train.apply_left(utry, location)
+            a_val.apply_left(utry, location)
 
         untrys = new_untrys
 
 
-        cost = 2*(1-jnp.real(SingleLegSideTensor.calc_env(B[0], a, [])[0])/N)
-        
-        if it%100 == 0:
-            print(f'{it = } {cost = }')
+        training_cost = 2*(1-jnp.real(SingleLegSideTensor.calc_env(B0_train, a_train, [])[0])/N)
+        validation_cost = 2*(1-jnp.real(SingleLegSideTensor.calc_env(B0_val, a_val, [])[0])/(N/2))
 
-        if cost <= dist_tol or it > 30000:
-            print(f'{it = } {cost = }')
+        training_costs.append(training_cost)
+        validation_costs.append(validation_cost)
+        
+        if it%2 == 0:
+            print(f'{it = } {training_cost = }')
+            print(f'{it = } {validation_cost = }')
+
+        if training_cost <= dist_tol or it > 3000:
+            print(f'{it = } {training_cost = }')
             break
         it+=1
 
+
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(training_costs, label='Training Costs', marker='o')
+    plt.plot(validation_costs, label='Validation Costs', marker='x')
+
+    # Add labels and title
+    plt.xlabel('Epochs')
+    plt.ylabel('Cost')
+    plt.yscale('log')
+    plt.title('Training and Validation Costs')
+    plt.legend()
+
+    # Show the plot
+    plt.grid(True)
+    plt.show()
 
     params = []
     for untry, gate in zip(untrys, gates):
@@ -749,7 +797,7 @@ for gate in gates:
 
 # %%
 # params = state_sample_sweep(4, target, locations, gates, pre_padding_untrys, num_qudits=2, radixes=(2,2),  dist_tol=1e-10,  beta=0)
-params = state_sample_sweep(6, target, locations, gates, pre_padding_untrys, num_qudits=3, radixes=(2,2,2),  dist_tol=1e-10,  beta=0)
+params = state_sample_sweep(8, target, locations, gates, pre_padding_untrys, num_qudits=3, radixes=(2,2,2),  dist_tol=1e-8,  beta=0)
 
 for op in circuit:
     g = op.gate
@@ -757,7 +805,6 @@ for op in circuit:
         g.__class__ = VariableUnitaryGate
 circuit.set_params(params)
 
-dist = circuit.get_unitary()
 dist = circuit.get_unitary().get_distance_from(UnitaryMatrix(target.numpy), 1)
 print(f'{dist = }')
 
