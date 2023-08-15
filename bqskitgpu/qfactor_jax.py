@@ -1,26 +1,33 @@
+#%%
 from __future__ import annotations
-
 import functools
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
-import jax
-import jax.numpy as jnp
+
 import numpy as np
 import numpy.typing as npt
 from scipy.stats import unitary_group
+
+import jax
+import jax.numpy as jnp
 
 from bqskit.ir.gates.constantgate import ConstantGate
 from bqskit.ir.gates.parameterized.u3 import U3Gate
 from bqskit.ir.gates.parameterized.unitary import VariableUnitaryGate
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from bqskit.ir.opt.instantiater import Instantiater
+from bqskit.ir.location import CircuitLocationLike
+from bqskit.ir.location import CircuitLocation
 from bqskit.qis.state.state import StateVector
 from bqskit.qis.state.system import StateSystem
 from bqskitgpu.unitary_acc import VariableUnitaryGateAcc
 from bqskitgpu.unitarybuilderjax import UnitaryBuilderJax
 from bqskitgpu.unitarymatrixjax import UnitaryMatrixJax
+from bqskitgpu.singlelegedtensor import SingleLegSideTensor, RHSTensor, LHSTensor
+
+from bqskit.ir.gates import  CXGate
 
 if TYPE_CHECKING:
     from bqskit.ir.circuit import Circuit
@@ -469,58 +476,29 @@ def _sweep2(
             )
         untrys = untrys_as_matrixs
 
-        if 'All_ENVS' in os.environ:
-
-            target_untry_builder_tensor = _initilize_circuit_tensor(
-                    amount_of_qudits, target_radixes, locations, target.numpy, untrys,
-                    ).tensor
-
-            target_untry_builder = UnitaryBuilderJax(
-                amount_of_qudits, target_radixes,
-                tensor=target_untry_builder_tensor,
-            )
-
-            
-            iteration_count = iteration_count + 1
-
-            
-            untrys = _single_sweep_sim(
-                locations, gates, amount_of_gates, target_untry_builder, untrys, beta
-            )
-
-            target_untry_builder_tensor = _initilize_circuit_tensor(
-                amount_of_qudits, target_radixes, locations, target.numpy, untrys,
-            ).tensor
-
-            target_untry_builder = UnitaryBuilderJax(
-                amount_of_qudits, target_radixes,
-                tensor=target_untry_builder_tensor,
-            )
-        else:
-
         # initilize every "n" iterations of the loop
-            operand_for_if = (untrys, target_untry_builder_tensor)
-            initilize_body = lambda x: _initilize_circuit_tensor(
-                amount_of_qudits, target_radixes, locations, target.numpy, x[0],
-            ).tensor
-            no_initilize_body = lambda x: x[1]
+        operand_for_if = (untrys, target_untry_builder_tensor)
+        initilize_body = lambda x: _initilize_circuit_tensor(
+            amount_of_qudits, target_radixes, locations, target.numpy, x[0],
+        ).tensor
+        no_initilize_body = lambda x: x[1]
 
-            target_untry_builder_tensor = jax.lax.cond(
-                iteration_count % n == 0, initilize_body,
-                no_initilize_body, operand_for_if,
-            )
+        target_untry_builder_tensor = jax.lax.cond(
+            iteration_count % n == 0, initilize_body,
+            no_initilize_body, operand_for_if,
+        )
 
-            target_untry_builder = UnitaryBuilderJax(
-                amount_of_qudits, target_radixes,
-                tensor=target_untry_builder_tensor,
-            )
+        target_untry_builder = UnitaryBuilderJax(
+            amount_of_qudits, target_radixes,
+            tensor=target_untry_builder_tensor,
+        )
 
 
-            iteration_count = iteration_count + 1
+        iteration_count = iteration_count + 1
 
-            target_untry_builder, untrys = _single_sweep(
-                locations, gates, amount_of_gates, target_untry_builder, untrys, beta
-            )
+        target_untry_builder, untrys = _single_sweep(
+            locations, gates, amount_of_gates, target_untry_builder, untrys, beta
+        )
         
         c2 = c1
         dim = target_untry_builder.dim
@@ -617,3 +595,171 @@ else:
             1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
         ),
     )
+
+
+
+
+
+def state_sample_sweep(N:int, target:UnitaryMatrixJax, locations, gates, untrys, num_qudits, radixes,  dist_tol,
+                    #    , diff_tol_a,
+    # diff_tol_r, plateau_windows_size, max_iters, min_iters,
+    # amount_of_starts, diff_tol_step_r, diff_tol_step,
+    beta=0):
+
+
+    amount_of_gates = len(gates)
+
+    #### Generate N random states
+    random_states_ket = []
+    random_states_bra = []
+    for _ in range(N):
+        # We generate a random unitary and take its first column
+        random_states_ket.append(unitary_group.rvs(np.prod(radixes))[:,:1])
+        random_states_bra.append(random_states_ket[-1].T.conj())
+
+    #### Compute A
+    A = RHSTensor(list_of_states = random_states_bra, num_qudits=num_qudits, radixes=radixes)
+    A.apply_left(target.T.conj(), range(num_qudits))
+
+    ### Until done....
+    it = 1
+    while True:
+
+        ### Compute B
+        B = [LHSTensor(list_of_states = random_states_ket, num_qudits=num_qudits, radixes=radixes)]
+        for location, utry in zip(locations[:-1], untrys[:-1]):
+            B.append(B[-1].copy())
+            B[-1].apply_right(utry, location)
+
+        temp = B[-1].copy()
+        temp.apply_right(untrys[-1], locations[-1])
+        cost = 2*(1-jnp.real(SingleLegSideTensor.calc_env(temp, A, [])[0])/N)
+        # print(f'initial {cost = }')
+
+        ### iterate over every gate from right to left and update it
+        new_untrys = [None]*amount_of_gates
+        a:RHSTensor = A.copy()
+        for idx in reversed(range(amount_of_gates)):
+            b = B[idx]
+            gate = gates[idx]
+            location = locations[idx]
+            utry = untrys[idx]
+            if gate.num_params > 0:
+                # print(f"Updating {utry._utry = }")
+                env = SingleLegSideTensor.calc_env(b, a, location)
+                utry = gate.optimize(env.T, get_untry=True, prev_utry=utry, beta=beta)
+                # print(f"to {utry._utry = }")
+            
+            new_untrys[idx] = utry
+            a.apply_left(utry, location)
+
+        untrys = new_untrys
+
+
+        cost = 2*(1-jnp.real(SingleLegSideTensor.calc_env(B[0], a, [])[0])/N)
+        
+        if it%100 == 0:
+            print(f'{it = } {cost = }')
+
+        if cost <= dist_tol or it > 30000:
+            print(f'{it = } {cost = }')
+            break
+        it+=1
+
+
+    params = []
+    for untry, gate in zip(untrys, gates):
+        if  isinstance(gate, ConstantGate):
+            params.extend([])
+        else:    
+            params.extend(
+                gate.get_params(untry.numpy),
+        )
+        
+    return np.array(params)
+
+
+# %%
+import numpy as np
+from bqskit.ir.circuit import Circuit
+from bqskit.ir.gates import VariableUnitaryGate
+from bqskit.qis.unitary import UnitaryMatrix
+
+toffoli = np.array([
+        [1, 0, 0, 0, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0, 0, 0, 0],
+        [0, 0, 1, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 1],
+        [0, 0, 0, 0, 0, 0, 1, 0],
+    ])
+target = UnitaryMatrixJax(toffoli)
+circuit = Circuit(3)
+circuit.append_gate(VariableUnitaryGate(2), [1, 2])
+circuit.append_gate(VariableUnitaryGate(2), [0, 2])
+circuit.append_gate(VariableUnitaryGate(2), [1, 2])
+circuit.append_gate(VariableUnitaryGate(2), [0, 2])
+circuit.append_gate(VariableUnitaryGate(2), [0, 1])
+
+
+
+if False:
+
+    circuit = Circuit(2)
+    if False:
+        circuit.append_gate(VariableUnitaryGate(2), [0,1])
+    else:
+        circuit.append_gate(VariableUnitaryGate(1), [0])
+        circuit.append_gate(VariableUnitaryGate(1), [1])
+        circuit.append_gate(CXGate(), [0, 1])
+        circuit.append_gate(VariableUnitaryGate(1), [0])
+        circuit.append_gate(VariableUnitaryGate(1), [1])
+        circuit.append_gate(CXGate(), [0, 1])
+        circuit.append_gate(VariableUnitaryGate(1), [0])
+        circuit.append_gate(VariableUnitaryGate(1), [1])
+        circuit.append_gate(CXGate(), [0, 1])
+        circuit.append_gate(VariableUnitaryGate(1), [0])
+        circuit.append_gate(VariableUnitaryGate(1), [1])
+
+    target = UnitaryMatrixJax(unitary_group.rvs(4))
+
+locations = tuple([op.location for op in circuit])
+for op in circuit:
+    g = op.gate
+    if isinstance(g, VariableUnitaryGate):
+        g.__class__ = VariableUnitaryGateAcc
+gates = tuple([op.gate for op in circuit])
+pre_padding_untrys = []
+for gate in gates:
+    size_of_untry = 2**gate.num_qudits
+
+    if isinstance(gate, VariableUnitaryGateAcc):
+        pre_padding_untrys.extend([
+                    UnitaryMatrixJax(unitary_group.rvs(size_of_untry)) for
+                    _ in range(1)
+                ])
+    else:
+        pre_padding_untrys.extend( [
+                    UnitaryMatrixJax(gate.get_unitary().numpy) for
+                    _ in range(1)  
+                ])
+
+
+# %%
+# params = state_sample_sweep(4, target, locations, gates, pre_padding_untrys, num_qudits=2, radixes=(2,2),  dist_tol=1e-10,  beta=0)
+params = state_sample_sweep(6, target, locations, gates, pre_padding_untrys, num_qudits=3, radixes=(2,2,2),  dist_tol=1e-10,  beta=0)
+
+for op in circuit:
+    g = op.gate
+    if isinstance(g, VariableUnitaryGateAcc):
+        g.__class__ = VariableUnitaryGate
+circuit.set_params(params)
+
+dist = circuit.get_unitary()
+dist = circuit.get_unitary().get_distance_from(UnitaryMatrix(target.numpy), 1)
+print(f'{dist = }')
+
+
+# %%
