@@ -64,7 +64,7 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
             and type(input) is not jax.core.ShapedArray
                 and not _from_tree
         ):
-            dim = np.prod(radixes)
+            dim = np.prod(self._radixes)
             self._utry = jnp.array(input, dtype=jnp.complex128).reshape(
                 (dim, dim) ,
             )  # make sure its a square matrix
