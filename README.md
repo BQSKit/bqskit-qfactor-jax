@@ -1,5 +1,5 @@
 # GPU support for BQSKit
-`bqskitgpu` is a Python package that implements circuit instantiation and simulation on GPU to accelerate [BQSKit](https://github.com/bqsKit/bqskit), it uses [JAX](https://jax.readthedocs.io/en/latest/index.html) as an abstraction layer of the GPUs, seamlessly utilizing JIT compilation and GPU parralizim.
+`bqskitgpu` is a Python package that implements circuit instantiation and simulation on GPU to accelerate [BQSKit](https://github.com/bqsKit/bqskit), it uses [JAX](https://jax.readthedocs.io/en/latest/index.html) as an abstraction layer of the GPUs, seamlessly utilizing JIT compilation and GPU parallelism.
 
 ## Installation
 `bqskitgpu` is available for Python 3.8+ on Linux, macOS.
@@ -15,14 +15,14 @@ pip install bqskitgpu
 # Runnig bqskitgpu
 Please set the environment variable XLA_PYTHON_CLIENT_PREALLOCATE=False when using this package.
 
-Please refere to the examples to see some basic usage.
+Please take a look at the examples to see some basic usage.
 
-When using several workers on the same GPU, we recommand using [Nvidia's MPS](https://docs.nvidia.com/deploy/mps/index.html). You may initiaie it using the command line
+When using several workers on the same GPU, we recommend using [Nvidia's MPS](https://docs.nvidia.com/deploy/mps/index.html). You may initiate it using the command line
 ```sh
 nvidia-cuda-mps-control -d
 ```
 
-You can disable it bu running this command line:
+You can disable it by running this command line:
 ```sh
 echo quit | nvidia-cuda-mps-control
 ```
