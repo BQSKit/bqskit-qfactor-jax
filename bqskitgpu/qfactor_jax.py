@@ -611,10 +611,7 @@ def state_sample_sweep(N:int, target:UnitaryMatrixJax, locations, gates, untrys,
 
     training_states_bras = []
     if training_states_kets == None:
-        training_states_kets = []
-        for _ in range(N):
-            # We generate a random unitary and take its first column
-            training_states_kets.append(unitary_group.rvs(np.prod(radixes))[:,:1])    
+        training_states_kets = generate_random_states(N, np.prod(radixes))
     else:
         assert N==len(training_states_kets)
 
@@ -623,10 +620,7 @@ def state_sample_sweep(N:int, target:UnitaryMatrixJax, locations, gates, untrys,
 
     validation_states_bras = []
     if validation_states_kets == None:
-        validation_states_kets = []
-        for _ in range(N//2):
-            # We generate a random unitary and take its first column
-            validation_states_kets.append(unitary_group.rvs(np.prod(radixes))[:,:1])    
+        validation_states_kets = generate_random_states(N//4, np.prod(radixes))    
 
     for ket in validation_states_kets:
         validation_states_bras.append(ket.T.conj())
@@ -684,7 +678,7 @@ def state_sample_sweep(N:int, target:UnitaryMatrixJax, locations, gates, untrys,
 
 
         training_cost = 2*(1-jnp.real(SingleLegSideTensor.calc_env(B0_train, a_train, [])[0])/N)
-        validation_cost = 2*(1-jnp.real(SingleLegSideTensor.calc_env(B0_val, a_val, [])[0])/(N/2))
+        validation_cost = 2*(1-jnp.real(SingleLegSideTensor.calc_env(B0_val, a_val, [])[0])/(N//4))
 
         training_costs.append(training_cost)
         validation_costs.append(validation_cost)
@@ -693,7 +687,7 @@ def state_sample_sweep(N:int, target:UnitaryMatrixJax, locations, gates, untrys,
             print(f'{it = } {training_cost = }')
             print(f'{it = } {validation_cost = }')
 
-        if it > 10 and validation_cost/10 > training_cost:
+        if it > 10 and validation_cost/32 > training_cost:
             print("Stopped due to no improvment in validation set")
             break
         if training_cost <= dist_tol or it > 3000:
@@ -729,6 +723,31 @@ def state_sample_sweep(N:int, target:UnitaryMatrixJax, locations, gates, untrys,
         
     return np.array(params)
 
+def generate_random_states(amount_of_states, size_of_state):
+    """
+    Generate a list of random state vectors (kets) using random unitary matrices.
+
+    This function generates a specified number of random quantum state vectors
+    (kets) by creating random unitary matrices and extracting their first columns.
+
+    Args:
+        amount_of_states (int): The number of random states to generate.
+        size_of_state (int): The dimension of each state vector (ket).
+
+    Returns:
+        list of ndarrays: A list containing random quantum state vectors (kets).
+                          Each ket is represented as a numpy ndarray of shape (size_of_state, 1).
+    """
+    states_kets = []
+    states_to_add = amount_of_states
+    while states_to_add > 0:
+        # We generate a random unitary and take its first column
+        rand_unitary = unitary_group.rvs(size_of_state)
+        states_to_add_in_step = min(states_to_add, size_of_state)
+        for i in range(states_to_add_in_step):
+            states_kets.append(rand_unitary[:, i:i+1])
+        states_to_add -= states_to_add_in_step
+    return states_kets
 
 # %%
 import numpy as np
