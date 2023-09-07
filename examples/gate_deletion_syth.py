@@ -7,42 +7,14 @@ that utilizses Qfacto's GPU implementation
 import logging
 import os
 from timeit import default_timer as timer
-from bqskit import Circuit, compile
-from bqskit.compiler import Compiler, CompilationTask
+from bqskit import Circuit
+from bqskit.compiler import Compiler
 from bqskit.passes import QuickPartitioner
 from bqskit.passes import ForEachBlockPass
 from bqskit.passes import ScanningGateRemovalPass
 from bqskit.passes import UnfoldPass
 from bqskit.passes import ToU3Pass
-# from bqskit.passes import FromU3ToVariablePass
-
-#####################################################################
-# Remove when this pass is in bqskit
-
-from bqskit.compiler.basepass import BasePass
-from bqskit.compiler.passdata import PassData
-from bqskit.ir.circuit import Circuit
-from bqskit.ir.gates.parameterized.u3 import U3Gate
-from bqskit.ir.gates.parameterized.unitary import VariableUnitaryGate
-from bqskit.ir.point import CircuitPoint
-
-class FromU3ToVariablePass(BasePass):
-    """Converts U3 Gates to single-qubit variable unitary gates."""
-
-    async def run(self, circuit: Circuit, data: PassData) -> None:
-        """Perform the pass's operation, see :class:`BasePass` for more."""
-        # _logger.debug('Converting U3Gates to VariableUnitaryGate')
-        for cycle, op in circuit.operations_with_cycles():
-            if isinstance(op.gate, U3Gate):
-                params = VariableUnitaryGate.get_params(op.get_unitary())
-                point = CircuitPoint(cycle, op.location[0])
-                vgate = VariableUnitaryGate(op.num_qudits, op.radixes)
-                circuit.replace_gate(
-                    point, vgate, op.location, params,
-                )
-
-#####################################################################
-
+from bqskit.passes import FromU3ToVariablePass
 from bqskitgpu.qfactor_jax import QFactor_jax
 
 
