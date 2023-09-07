@@ -14,7 +14,7 @@ from bqskit.passes import ForEachBlockPass
 from bqskit.passes import ScanningGateRemovalPass
 from bqskit.passes import UnfoldPass
 from bqskit.passes import ToU3Pass
-from bqskit.passes import FromU3ToVariablePass
+from bqskit.passes import ToVariablePass
 from bqskitgpu.qfactor_jax import QFactor_jax
 
 
@@ -69,7 +69,7 @@ def run_gate_del_flow_example():
         # Prepare the comiplation passes
         passes =[
                 # Convert U3's to VU
-                FromU3ToVariablePass(),
+                ToVariablePass(),
 
                 # Split the circuit into partitions
                 QuickPartitioner(partition_size),
