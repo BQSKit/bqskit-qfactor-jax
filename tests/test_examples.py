@@ -16,12 +16,14 @@ def test_toffoli_instantiation() -> None:
 
 def test_gate_del_synth() -> None:
 
-    if 'AMOUNT_OF_WORKERS' in os.env:
-        amount_of_workers = os.env['AMOUNT_OF_WORKERS']
+    if 'AMOUNT_OF_WORKERS' in os.environ:
+        amount_of_workers = int(os.environ['AMOUNT_OF_WORKERS'])
     else:
-        amount_of_workers = 10 
+        amount_of_workers = 10
 
-    in_circuit, out_circuit, run_time = run_gate_del_flow_example(amount_of_workers)
+    in_circuit, out_circuit, run_time = run_gate_del_flow_example(
+        amount_of_workers,
+    )
 
     out_circuit_gates_count = out_circuit.gate_counts
     assert out_circuit_gates_count[CNOTGate()] == 44
