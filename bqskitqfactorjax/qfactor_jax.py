@@ -321,7 +321,7 @@ def _single_sweep(
         if gate.num_params > 0:
             env = target_untry_builder.calc_env_matrix(location)
             untry = gate.optimize(
-                env, get_untry=True, prev_utry=untry,
+                env, get_untry=True, prev_untry=untry,
                 beta=beta,
             )
             untrys[k] = untry
