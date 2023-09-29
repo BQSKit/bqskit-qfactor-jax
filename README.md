@@ -15,7 +15,7 @@ pip install bqskit-qfactor-jax
 # Running bqskit-qfactor-jax
 Please set the environment variable XLA_PYTHON_CLIENT_PREALLOCATE=False when using this package.
 
-Please take a look at the examples to see some basic usage.
+Please take a look at the [examples](https://github.com/BQSKit/bqskit-qfactor-jax/tree/main/examples) to see some basic usage.
 
 When using several workers on the same GPU, we recommend using [Nvidia's MPS](https://docs.nvidia.com/deploy/mps/index.html). You may initiate it using the command line
 ```sh
@@ -28,7 +28,7 @@ echo quit | nvidia-cuda-mps-control
 ```
 
 # References
-Kukliansky, Alon, et al. "QFactor--A Domain-Specific Optimizer for Quantum Circuit Instantiation." arXiv preprint [arXiv:2306.08152](https://arxiv.org/abs/2306.08152) (2023).
+Kukliansky, Alon, et al. "QFactor:A Domain-Specific Optimizer for Quantum Circuit Instantiation." arXiv preprint [arXiv:2306.08152](https://arxiv.org/abs/2306.08152) (2023).
 
 ## License
 The software in this repository is licensed under a **BSD free software
