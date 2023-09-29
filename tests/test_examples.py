@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from bqskit.ir.gates import CNOTGate
 from bqskit.ir.gates import U3Gate
 
@@ -13,7 +15,13 @@ def test_toffoli_instantiation() -> None:
 
 
 def test_gate_del_synth() -> None:
-    in_circuit, out_circuit, run_time = run_gate_del_flow_example()
+
+    if 'AMOUNT_OF_WORKERS' in os.env:
+        amount_of_workers = os.env['AMOUNT_OF_WORKERS']
+    else:
+        amount_of_workers = 10 
+
+    in_circuit, out_circuit, run_time = run_gate_del_flow_example(amount_of_workers)
 
     out_circuit_gates_count = out_circuit.gate_counts
     assert out_circuit_gates_count[CNOTGate()] == 44

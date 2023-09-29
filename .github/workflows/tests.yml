@@ -28,4 +28,6 @@ jobs:
     - name: Install QFactor JAX
       run: pip install .
     - name: Run tests
+      env:
+        AMOUNT_OF_WORKERS: 2
       run: pytest

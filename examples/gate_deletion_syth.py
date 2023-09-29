@@ -18,12 +18,9 @@ from bqskit.passes import UnfoldPass
 from bqskitqfactorjax.qfactor_jax import QFactor_jax
 
 
-def run_gate_del_flow_example() -> tuple[Circuit, Circuit, float]:
+def run_gate_del_flow_example(amount_of_workers=10) -> tuple[Circuit, Circuit, float]:
     # The circuit to resynthesize
     file_path = os.path.dirname(__file__) + '/grover5.qasm'
-
-    # Compiler runtime configuration
-    amount_of_workers = 10
 
     # Set the size of paritions
     partition_size = 4
