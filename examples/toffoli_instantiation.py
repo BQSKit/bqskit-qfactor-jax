@@ -29,15 +29,15 @@ def run_toffoli_instantiation(dist_tol_requested: float = 1e-10) -> float:
 
         # Long plateau detection -
         # diff_tol_step_r*|c(i-diff_tol_step)| <= |c(i)|-|c(i-diff_tol_step)|
-        diff_tol_step_r=0.1,  # The relative improvment expected
-        diff_tol_step=200,  # The interval in which to check the improvment
+        diff_tol_step_r=0.1,  # The relative improvement expected
+        diff_tol_step=200,  # The interval in which to check the improvement
 
         # Regularization parameter - [0.0 - 1.0]
-        # Increase to overcome local minimumas at the price of longer compute
+        # Increase to overcome local minima at the price of longer compute
         beta=0.0,
     )
 
-    # We will optimize towards the toffoli unitary.
+    # We will optimize towards the Toffoli unitary.
     toffoli = np.array([
         [1, 0, 0, 0, 0, 0, 0, 0],
         [0, 1, 0, 0, 0, 0, 0, 0],

@@ -35,7 +35,7 @@ class VariableUnitaryGateAcc(VariableUnitaryGate):
 
     def optimize(
         self, env_matrix: Array, get_untry: bool,
-        beta: float, prev_utry: Array,
+        beta: float, prev_untry: Array,
     ) -> list[float] | UnitaryMatrixJax:
         """
         Return the optimal parameters with respect to an environment matrix.
@@ -45,7 +45,7 @@ class VariableUnitaryGateAcc(VariableUnitaryGate):
 
         U, _, Vh = jla.svd(
             (1 - beta) * env_matrix
-            + beta * prev_utry._utry.conj().T,
+            + beta * prev_untry._utry.conj().T,
         )
         utry = Vh.conj().T @ U.conj().T
 

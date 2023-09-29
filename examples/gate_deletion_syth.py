@@ -46,7 +46,7 @@ def run_gate_del_flow_example(
     # Read the QASM circuit
     in_circuit = Circuit.from_file(file_path)
 
-    # Preoare the instantiator
+    # Prepare the instantiator
     batched_instantiation = QFactor_jax(
         diff_tol_r=diff_tol_r,
         diff_tol_a=diff_tol_a,

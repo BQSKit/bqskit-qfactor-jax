@@ -22,7 +22,6 @@ else:
         pass
 
 
-# class UnitaryMatrixJax(UnitaryMatrix):
 class UnitaryMatrixJax(NDArrayOperatorsMixin):
     def __init__(
         self,
@@ -110,7 +109,7 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
             UnitaryMatrix: An identity matrix.
 
         Raises:
-            ValueError: If `dim` is nonpositive.
+            ValueError: If `dim` is non-positive.
         """
         if dim <= 0:
             raise ValueError('Invalid dimension for identity matrix.')
@@ -190,12 +189,17 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
         """
         Converts the unitary matrix operation into a tensor network format.
 
-        Indices are counted top to bottom, right to left:       .-----.    n -|
-        |- 0  n+1 -|     |- 1       .     .       .     .       .     . 2n-1 -|
-        |- n-1       '-----'
+        Indices are counted top to bottom, right to left:
+                 .-----.
+              n -|     |- 0
+            n+1 -|     |- 1
+                 .     .
+                 .     .
+                 .     .
+           2n-1 -|     |- n-1
+                 '-----'
 
-         Returns     Union[DeviceArray, np.ndarray]: A tensor representing this
-        matrix.
+         Returns     Array: A tensor representing this matrix.
         """
 
         return self._utry.reshape(self.radixes + self.radixes)

@@ -50,7 +50,7 @@ class UnitaryBuilderJax():
                 qudit. Defaults to qubits.
 
         Raises:
-            ValueError: If `num_qudits` is nonpositive.
+            ValueError: If `num_qudits` is non-positive.
 
             ValueError: If the length of `radixes` is not equal to
                 `num_qudits`.
@@ -188,8 +188,8 @@ class UnitaryBuilderJax():
         else:
             offset = utry_size
 
-        utry_tensor_indexs = [i for i in range(2 * utry_size)]
-        utry_builder_tensor_indexs = [
+        utry_tensor_indexes = [i for i in range(2 * utry_size)]
+        utry_builder_tensor_indexes = [
             2 * utry_size + i for i in range(2 * self.num_qudits)
         ]
         output_tensor_index = [
@@ -198,12 +198,12 @@ class UnitaryBuilderJax():
         ]
 
         for i, loc in enumerate(location):
-            utry_builder_tensor_indexs[loc] = offset + i
+            utry_builder_tensor_indexes[loc] = offset + i
             output_tensor_index[loc] = (utry_size - offset) + i
 
         self.tensor = jnp.einsum(
-            utry_tensor, utry_tensor_indexs,
-            self.tensor, utry_builder_tensor_indexs, output_tensor_index,
+            utry_tensor, utry_tensor_indexes,
+            self.tensor, utry_builder_tensor_indexes, output_tensor_index,
         )
 
     def apply_left(
@@ -275,8 +275,8 @@ class UnitaryBuilderJax():
         else:
             offset = 0
 
-        utry_tensor_indexs = [i for i in range(2 * utry_size)]
-        utry_builder_tensor_indexs = [
+        utry_tensor_indexes = [i for i in range(2 * utry_size)]
+        utry_builder_tensor_indexes = [
             2 * utry_size + i for i in range(2 * self.num_qudits)
         ]
         output_tensor_index = [
@@ -285,13 +285,13 @@ class UnitaryBuilderJax():
         ]
 
         for i, loc in enumerate(location):
-            utry_builder_tensor_indexs[self.num_qudits + loc] = offset + i
+            utry_builder_tensor_indexes[self.num_qudits + loc] = offset + i
             output_tensor_index[
                 self.num_qudits + loc
             ] = (utry_size - offset) + i
         self.tensor = jnp.einsum(
-            utry_tensor, utry_tensor_indexs,
-            self.tensor, utry_builder_tensor_indexs, output_tensor_index,
+            utry_tensor, utry_tensor_indexes,
+            self.tensor, utry_builder_tensor_indexes, output_tensor_index,
         )
 
     def eval_apply_right(
@@ -378,16 +378,16 @@ class UnitaryBuilderJax():
             jax.Array: The environmental matrix.
         """
 
-        contraction_indexs = list(range(self.num_qudits)) + \
+        contraction_indexes = list(range(self.num_qudits)) + \
             list(range(self.num_qudits))
         for i, loc in enumerate(location):
-            contraction_indexs[loc + self.num_qudits] = self.num_qudits + i + 1
+            contraction_indexes[loc + self.num_qudits] = self.num_qudits + i + 1
 
-        contraction_indexs_str = ''.join(
-            [chr(ord('a') + i) for i in contraction_indexs],
+        contraction_indexes_str = ''.join(
+            [chr(ord('a') + i) for i in contraction_indexes],
         )
 
-        env_tensor = jnp.einsum(contraction_indexs_str, self.tensor)
+        env_tensor = jnp.einsum(contraction_indexes_str, self.tensor)
         env_mat = env_tensor.reshape((2**len(location), -1))
 
         return env_mat

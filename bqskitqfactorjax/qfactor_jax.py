@@ -188,7 +188,7 @@ class QFactor_jax(Instantiater):
             )
 
             _logger.debug(
-                f'Terminated: {it} c1 = {c1s} Reached plateuo.\n'
+                f'Terminated: {it} c1 = {c1s} Reached plateau.\n'
                 f'Best start is {best_start}',
             )
         elif all(res_var['curr_step_calc_l']):
@@ -197,7 +197,7 @@ class QFactor_jax(Instantiater):
                 ' <= diff_tol_step_r * |prev_step_c1|.',
             )
             _logger.debug(
-                f'Terminated: {it} c1 = {c1s} Reached plateuo.\n'
+                f'Terminated: {it} c1 = {c1s} Reached plateau.\n'
                 f'Best start is {best_start}',
             )
 
@@ -206,7 +206,7 @@ class QFactor_jax(Instantiater):
 
         else:
             _logger.error(
-                f'Terminated with no good reason after {it} iterstion '
+                f'Terminated with no good reason after {it} iteration '
                 f'with c1s {c1s}.',
             )
         params: list[Array] = []
@@ -228,8 +228,8 @@ class QFactor_jax(Instantiater):
         return 'qfactor_jax_batched_jit'
 
     @staticmethod
-    def can_internaly_perform_multistart() -> bool:
-        """Probes if the instantiater can internaly perform multistrat."""
+    def can_internally_perform_multistart() -> bool:
+        """Probes if the instantiater can internally perform multistart."""
         return True
 
     @staticmethod
