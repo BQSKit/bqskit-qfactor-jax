@@ -1,6 +1,10 @@
-from bqskit.ir.gates import CNOTGate, U3Gate
-from examples.toffoli_instantiation import run_toffoli_instantiation
+from __future__ import annotations
+
+from bqskit.ir.gates import CNOTGate
+from bqskit.ir.gates import U3Gate
+
 from examples.gate_deletion_syth import run_gate_del_flow_example
+from examples.toffoli_instantiation import run_toffoli_instantiation
 
 
 def test_toffoli_instantiation():
@@ -14,4 +18,3 @@ def test_gate_del_synth():
     out_circuit_gates_count = out_circuit.gate_counts
     assert out_circuit_gates_count[CNOTGate()] == 44
     assert out_circuit_gates_count[U3Gate()] == 56
-

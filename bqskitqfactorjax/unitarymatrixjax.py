@@ -6,15 +6,12 @@ import jax
 import jax.numpy as jnp
 import jax.scipy.linalg as jla
 import numpy as np
-from jax import Array
-
+from bqskit.qis.unitary.unitary import Unitary
 from bqskit.qis.unitary.unitarymatrix import UnitaryLike
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from bqskit.utils.docs import building_docs
 from bqskit.utils.typing import is_square_matrix
-
-from bqskit.qis.unitary.unitary import Unitary
-from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
+from jax import Array
 
 if not building_docs():
     from numpy.lib.mixins import NDArrayOperatorsMixin
@@ -83,7 +80,7 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
             return self._dim
 
         return int(np.prod(self.radixes))
-    
+
 
     @property
     def num_params(self) -> int:
@@ -154,7 +151,7 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
     def numpy(self) -> Array:
         """The JaxNumPy array holding the unitary."""
         return self._utry
-    
+
     @property
     def jaxnumpy(self) -> Array:
         """The JaxNumPy array holding the unitary."""
@@ -173,15 +170,15 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
     def T(self) -> UnitaryMatrixJax:
         """The transpose of the unitary."""
         return UnitaryMatrixJax(self._utry.T, self.radixes)
-    
+
     def conj(self) -> UnitaryMatrixJax:
         """Return the complex conjugate unitary matrix."""
         return UnitaryMatrixJax(self._utry.conj(), self.radixes)
-    
+
     def get_unitary(self, params) -> UnitaryMatrixJax:
         """Return the same object, satisfies the :class:`Unitary` API."""
         return self
-    
+
     @property
     def dagger(self) -> UnitaryMatrixJax:
         """The conjugate transpose of the unitary."""
@@ -198,28 +195,21 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
             )
 
         return self._utry
-    
+
     def get_tensor_format(self) -> Array:
         """
         Converts the unitary matrix operation into a tensor network format.
 
-         Indices are counted top to bottom, right to left:
-              .-----.
-           n -|     |- 0
-         n+1 -|     |- 1
-              .     .
-              .     .
-              .     .
-        2n-1 -|     |- n-1
-              '-----'
+        Indices are counted top to bottom, right to left:       .-----.    n -|
+        |- 0  n+1 -|     |- 1       .     .       .     .       .     . 2n-1 -|
+        |- n-1       '-----'
 
-
-         Returns
-             Union[DeviceArray, np.ndarray]: A tensor representing this matrix.
+         Returns     Union[DeviceArray, np.ndarray]: A tensor representing this
+        matrix.
         """
 
         return self._utry.reshape(self.radixes + self.radixes)
-    
+
 
     def __eq__(self, other: object) -> bool:
         """Check if `self` is approximately equal to `other`."""
@@ -233,7 +223,7 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
             return np.allclose(self, other)
 
         return NotImplemented
-    
+
 
     def __array__(
         self,

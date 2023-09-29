@@ -9,15 +9,15 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import numpy.typing as npt
-from scipy.stats import unitary_group
-
 from bqskit.ir.gates.constantgate import ConstantGate
 from bqskit.ir.gates.parameterized.u3 import U3Gate
 from bqskit.ir.gates.parameterized.unitary import VariableUnitaryGate
-from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from bqskit.ir.opt.instantiater import Instantiater
 from bqskit.qis.state.state import StateVector
 from bqskit.qis.state.system import StateSystem
+from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
+from scipy.stats import unitary_group
+
 from bqskitqfactorjax.unitary_acc import VariableUnitaryGateAcc
 from bqskitqfactorjax.unitarybuilderjax import UnitaryBuilderJax
 from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
@@ -85,7 +85,7 @@ class QFactor_jax(Instantiater):
     ) -> npt.NDArray[np.float64]:
 
         return self.multi_start_instantiate(circuit, target, 1)
-    
+
 
     def multi_start_instantiate_inplace(
         self,
@@ -107,15 +107,15 @@ class QFactor_jax(Instantiater):
         circuit.set_params(params)
 
 
-    
-    
+
+
     async def multi_start_instantiate_async(
         self,
         circuit: Circuit,
         target: UnitaryLike | StateLike | StateSystemLike,
         num_starts: int,
     ) -> npt.NDArray[np.float64]:
-        
+
         return self.multi_start_instantiate(circuit, target, num_starts)
 
     def multi_start_instantiate(
@@ -167,9 +167,9 @@ class QFactor_jax(Instantiater):
         res_var = _sweep2_jited(
             target, locations, gates, untrys, self.reset_iter, self.dist_tol,
             self.diff_tol_a, self.diff_tol_r, self.plateau_windows_size,
-            self.max_iters, self.min_iters, num_starts, self.diff_tol_step_r, self.diff_tol_step, self.beta
+            self.max_iters, self.min_iters, num_starts, self.diff_tol_step_r, self.diff_tol_step, self.beta,
         )
-        
+
         it = res_var['iteration_counts'][0]
         c1s = res_var['c1s']
         untrys = res_var['untrys']
@@ -202,7 +202,7 @@ class QFactor_jax(Instantiater):
 
         elif it >= self.max_iters:
             _logger.debug('Terminated: iteration limit reached.')
-            
+
         else:
             _logger.error(
                 f'Terminated with no good reason after {it} iterstion '
@@ -212,15 +212,15 @@ class QFactor_jax(Instantiater):
         for untry, gate in zip(untrys[best_start], gates):
             if  isinstance(gate, ConstantGate):
                 params.extend([])
-            else:    
+            else:
                 params.extend(
                     gate.get_params(
                     _remove_padding_and_create_matrix(untry, gate),
                     ),
-            )
-        
+                )
+
         return np.array(params)
-        
+
     @staticmethod
     def get_method_name() -> str:
         """Return the name of this method."""
@@ -302,7 +302,7 @@ def _initilize_circuit_tensor(
 
 def _single_sweep(
     locations, gates, amount_of_gates, target_untry_builder:UnitaryBuilderJax,
-    untrys, beta=0
+    untrys, beta=0,
 ):
     # from right to left
     for k in reversed(range(amount_of_gates)):
@@ -354,9 +354,9 @@ def _single_sweep(
 
 def _single_sweep_sim(
     locations, gates, amount_of_gates, target_untry_builder,
-    untrys, beta=0
+    untrys, beta=0,
 ):
-    
+
     new_untrys = []
     # from right to left
     for k in reversed(range(amount_of_gates)):
@@ -376,7 +376,7 @@ def _single_sweep_sim(
         else:
             new_untrys.append(untry)
 
-        
+
         target_untry_builder.apply_left(
             untry, location, check_arguments=False,
         )
@@ -403,7 +403,7 @@ def _remove_padding_and_create_matrix(untry, gate):
 def Loop_vars(
     untrys, c1s, plateau_windows, curr_plateau_calc_l,
     curr_reached_required_tol_l, iteration_counts,
-    target_untry_builders, prev_step_c1s, curr_step_calc_l
+    target_untry_builders, prev_step_c1s, curr_step_calc_l,
 ):
     d = {}
     d['untrys'] = untrys
@@ -422,7 +422,7 @@ def Loop_vars(
 def _sweep2(
     target, locations, gates, untrys, n, dist_tol, diff_tol_a,
     diff_tol_r, plateau_windows_size, max_iters, min_iters,
-    amount_of_starts, diff_tol_step_r, diff_tol_step, beta
+    amount_of_starts, diff_tol_step_r, diff_tol_step, beta,
 ):
     c1s = jnp.array([1.0] * amount_of_starts)
     plateau_windows = jnp.array(
@@ -442,8 +442,8 @@ def _sweep2(
                         var['iteration_counts'][0] > min_iters,
                         jnp.logical_or(
                             jnp.all(var['curr_plateau_calc_l']),
-                            jnp.all(var['curr_step_calc_l'])
-                        )
+                            jnp.all(var['curr_step_calc_l']),
+                        ),
                     ),
                 ),
             ),
@@ -452,7 +452,7 @@ def _sweep2(
     def _while_body_to_be_vmaped(
         untrys, c1, plateau_window, curr_plateau_calc,
         curr_reached_required_tol, iteration_count,
-        target_untry_builder_tensor, prev_step_c1, curr_step_calc
+        target_untry_builder_tensor, prev_step_c1, curr_step_calc,
     ):
         amount_of_gates = len(gates)
         amount_of_qudits = target.num_qudits
@@ -473,19 +473,19 @@ def _sweep2(
 
             target_untry_builder_tensor = _initilize_circuit_tensor(
                     amount_of_qudits, target_radixes, locations, target.numpy, untrys,
-                    ).tensor
+            ).tensor
 
             target_untry_builder = UnitaryBuilderJax(
                 amount_of_qudits, target_radixes,
                 tensor=target_untry_builder_tensor,
             )
 
-            
+
             iteration_count = iteration_count + 1
 
-            
+
             untrys = _single_sweep_sim(
-                locations, gates, amount_of_gates, target_untry_builder, untrys, beta
+                locations, gates, amount_of_gates, target_untry_builder, untrys, beta,
             )
 
             target_untry_builder_tensor = _initilize_circuit_tensor(
@@ -519,9 +519,9 @@ def _sweep2(
             iteration_count = iteration_count + 1
 
             target_untry_builder, untrys = _single_sweep(
-                locations, gates, amount_of_gates, target_untry_builder, untrys, beta
+                locations, gates, amount_of_gates, target_untry_builder, untrys, beta,
             )
-        
+
         c2 = c1
         dim = target_untry_builder.dim
         untry_res = target_untry_builder.tensor.reshape((dim, dim))
@@ -546,7 +546,8 @@ def _sweep2(
 
         prev_step_c1, curr_step_calc = jax.lax.cond(
             (iteration_count+1) % diff_tol_step == 0,
-            reached_step_body, not_reached_step_body, operand_for_if)
+            reached_step_body, not_reached_step_body, operand_for_if,
+        )
 
         biggest_gate_size = max(gate.num_qudits for gate in gates)
         final_untrys_padded = jnp.array([
@@ -559,7 +560,7 @@ def _sweep2(
         return (
             final_untrys_padded, c1, plateau_window, curr_plateau_calc,
             curr_reached_required_tol, iteration_count,
-            target_untry_builder.tensor, prev_step_c1, curr_step_calc
+            target_untry_builder.tensor, prev_step_c1, curr_step_calc,
         )
 
     while_body_vmaped = jax.vmap(_while_body_to_be_vmaped)
@@ -574,7 +575,7 @@ def _sweep2(
                 var['iteration_counts'],
                 var['target_untry_builders'],
                 var['prev_step_c1s'],
-                var['curr_step_calc_l']
+                var['curr_step_calc_l'],
             ),
         )
 
@@ -590,17 +591,17 @@ def _sweep2(
         jnp.array([False] * amount_of_starts),
         jnp.array([0] * amount_of_starts),
         initial_untray_builders_values, prev_step_c1s,
-        jnp.array([False] * amount_of_starts)
+        jnp.array([False] * amount_of_starts),
     )
 
-    
+
     if 'PRINT_LOSS_QFACTOR' in os.environ:
         loop_var = initial_loop_var
         i = 1
         while(should_continue(loop_var)):
             loop_var = while_body(loop_var)
 
-            print("LOSS:",i , loop_var['c1s'])
+            print('LOSS:',i , loop_var['c1s'])
             i +=1
         res_var = loop_var
     else:
@@ -614,6 +615,6 @@ if 'NO_JIT_QFACTOR' in os.environ:
 else:
     _sweep2_jited = jax.jit(
         _sweep2, static_argnums=(
-            1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
+            1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
         ),
     )

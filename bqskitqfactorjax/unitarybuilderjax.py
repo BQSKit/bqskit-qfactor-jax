@@ -2,20 +2,21 @@
 from __future__ import annotations
 
 import logging
-from typing import Sequence, cast
+from typing import cast
+from typing import Sequence
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 import numpy.typing as npt
-
+from bqskit.ir.location import CircuitLocation
+from bqskit.ir.location import CircuitLocationLike
 from bqskit.qis.unitary.unitary import RealVector
 from bqskit.qis.unitary.unitarybuilder import UnitaryBuilder
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from bqskit.utils.typing import is_integer
 from bqskit.utils.typing import is_valid_radixes
-from bqskit.ir.location import CircuitLocationLike
-from bqskit.ir.location import CircuitLocation
+
 from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
 logger = logging.getLogger(__name__)
