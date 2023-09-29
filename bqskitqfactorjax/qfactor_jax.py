@@ -3,19 +3,21 @@ from __future__ import annotations
 import functools
 import logging
 import os
+from typing import Sequence
 from typing import TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 import numpy.typing as npt
+from bqskit.ir import CircuitLocation
+from bqskit.ir import Gate
 from bqskit.ir.gates.constantgate import ConstantGate
 from bqskit.ir.gates.parameterized.u3 import U3Gate
 from bqskit.ir.gates.parameterized.unitary import VariableUnitaryGate
 from bqskit.ir.opt.instantiater import Instantiater
-from bqskit.qis.state.state import StateVector
-from bqskit.qis.state.system import StateSystem
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
+from jax import Array
 from scipy.stats import unitary_group
 
 from bqskitqfactorjax.unitary_acc import VariableUnitaryGateAcc
@@ -80,7 +82,7 @@ class QFactor_jax(Instantiater):
     def instantiate(
         self,
         circuit: Circuit,
-        target: UnitaryMatrix | StateVector | StateSystem,
+        target: UnitaryLike,
         x0: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
 
@@ -89,7 +91,7 @@ class QFactor_jax(Instantiater):
     def multi_start_instantiate_inplace(
         self,
         circuit: Circuit,
-        target: UnitaryLike | StateLike | StateSystemLike,
+        target: UnitaryLike,
         num_starts: int,
     ) -> None:
         """
@@ -101,14 +103,14 @@ class QFactor_jax(Instantiater):
             This method is a version of :func:`multi_start_instantiate`
             that modifies `circuit` in place rather than returning a copy.
         """
-        target = self.check_target(target)
-        params = self.multi_start_instantiate(circuit, target, num_starts)
+        target_mat: UnitaryMatrix = self.check_target(target)
+        params = self.multi_start_instantiate(circuit, target_mat, num_starts)
         circuit.set_params(params)
 
     async def multi_start_instantiate_async(
         self,
         circuit: Circuit,
-        target: UnitaryLike | StateLike | StateSystemLike,
+        target: UnitaryLike,
         num_starts: int,
     ) -> npt.NDArray[np.float64]:
 
@@ -121,7 +123,7 @@ class QFactor_jax(Instantiater):
         num_starts: int,
     ) -> npt.NDArray[np.float64]:
         if len(circuit) == 0:
-            return []
+            return np.array([])
 
         circuit = circuit.copy()
 
@@ -133,8 +135,10 @@ class QFactor_jax(Instantiater):
 
         """Instantiate `circuit`, see Instantiater for more info."""
         target = UnitaryMatrixJax(self.check_target(target))
-        locations = tuple([op.location for op in circuit])
-        gates = tuple([op.gate for op in circuit])
+        locations: tuple[CircuitLocation, ...] = tuple(
+            [op.location for op in circuit],
+        )
+        gates: tuple[Gate, ...] = tuple([op.gate for op in circuit])
         biggest_gate_size = max(gate.num_qudits for gate in gates)
 
         untrys = []
@@ -205,7 +209,7 @@ class QFactor_jax(Instantiater):
                 f'Terminated with no good reason after {it} iterstion '
                 f'with c1s {c1s}.',
             )
-        params = []
+        params: list[Array] = []
         for untry, gate in zip(untrys[best_start], gates):
             if isinstance(gate, ConstantGate):
                 params.extend([])
@@ -229,7 +233,7 @@ class QFactor_jax(Instantiater):
         return True
 
     @staticmethod
-    def is_capable(circuit) -> bool:
+    def is_capable(circuit: Circuit) -> bool:
         """Return true if the circuit can be instantiated."""
         return all(
             isinstance(
@@ -242,7 +246,7 @@ class QFactor_jax(Instantiater):
         )
 
     @staticmethod
-    def get_violation_report(circuit) -> str:
+    def get_violation_report(circuit: Circuit) -> str:
         """
         Return a message explaining why `circuit` cannot be instantiated.
 
@@ -277,13 +281,13 @@ class QFactor_jax(Instantiater):
         )
 
 
-def _initilize_circuit_tensor(
-    target_num_qudits,
-    target_radixes,
-    locations,
-    target_mat,
-    untrys,
-):
+def _initialize_circuit_tensor(
+    target_num_qudits: int,
+    target_radixes: Sequence[int],
+    locations: Sequence[CircuitLocation],
+    target_mat: Array,
+    untrys: list[Array],
+) -> UnitaryBuilderJax:
 
     target_untry_builder = UnitaryBuilderJax(
         target_num_qudits, target_radixes, target_mat.conj().T,
@@ -298,9 +302,10 @@ def _initilize_circuit_tensor(
 
 
 def _single_sweep(
-    locations, gates, amount_of_gates, target_untry_builder: UnitaryBuilderJax,
-    untrys, beta=0,
-):
+    locations: tuple[CircuitLocation, ...], gates: tuple[Gate, ...],
+    amount_of_gates: int, target_untry_builder: UnitaryBuilderJax,
+    untrys: list[Array], beta: float = 0.0,
+) -> tuple[UnitaryBuilderJax, Array]:
     # from right to left
     for k in reversed(range(amount_of_gates)):
         gate = gates[k]
@@ -340,7 +345,7 @@ def _single_sweep(
         # Update current gate
         if gate.num_params > 0:
             env = target_untry_builder.calc_env_matrix(location)
-            untry = gate.optimize(env, True, untry, beta)
+            untry = gate.optimize(env, True, beta, untry)
             untrys[k] = untry
 
             # Add updated gate to right of circuit tensor
@@ -352,9 +357,10 @@ def _single_sweep(
 
 
 def _single_sweep_sim(
-    locations, gates, amount_of_gates, target_untry_builder,
-    untrys, beta=0,
-):
+    locations: tuple[CircuitLocation, ...], gates: tuple[Gate, ...],
+    amount_of_gates: int, target_untry_builder: UnitaryBuilderJax,
+    untrys: list[Array], beta: float = 0.0,
+) -> list[Array]:
 
     new_untrys = []
     # from right to left
@@ -371,7 +377,7 @@ def _single_sweep_sim(
         # Update current gate
         if gate.num_params > 0:
             env = target_untry_builder.calc_env_matrix(location)
-            new_untrys.append(gate.optimize(env, True, untry, beta))
+            new_untrys.append(gate.optimize(env, True, beta, untry))
         else:
             new_untrys.append(untry)
 
@@ -382,7 +388,9 @@ def _single_sweep_sim(
     return new_untrys[::-1]
 
 
-def _apply_padding_and_flatten(untry, gate, max_gate_size):
+def _apply_padding_and_flatten(
+        untry: Array, gate: Gate, max_gate_size: int,
+) -> Array:
     zero_pad_size = (2**max_gate_size)**2 - (2**gate.num_qudits)**2
     if zero_pad_size > 0:
         zero_pad = jnp.zeros(zero_pad_size)
@@ -391,17 +399,20 @@ def _apply_padding_and_flatten(untry, gate, max_gate_size):
         return jnp.array(untry.flatten())
 
 
-def _remove_padding_and_create_matrix(untry, gate):
+def _remove_padding_and_create_matrix(
+        untry: Array, gate: Gate,
+) -> Array:
     len_of_matrix = 2**gate.num_qudits
     size_to_keep = len_of_matrix**2
     return untry[:size_to_keep].reshape((len_of_matrix, len_of_matrix))
 
 
 def Loop_vars(
-    untrys, c1s, plateau_windows, curr_plateau_calc_l,
-    curr_reached_required_tol_l, iteration_counts,
-    target_untry_builders, prev_step_c1s, curr_step_calc_l,
-):
+    untrys: list[Array], c1s: Array, plateau_windows: Array,
+    curr_plateau_calc_l: Array, curr_reached_required_tol_l: Array,
+    iteration_counts: Array, target_untry_builders: Array, prev_step_c1s: Array,
+    curr_step_calc_l: Array,
+) -> dict[str, Array]:
     d = {}
     d['untrys'] = untrys
     d['c1s'] = c1s
@@ -417,10 +428,12 @@ def Loop_vars(
 
 
 def _sweep2(
-    target, locations, gates, untrys, n, dist_tol, diff_tol_a,
-    diff_tol_r, plateau_windows_size, max_iters, min_iters,
-    amount_of_starts, diff_tol_step_r, diff_tol_step, beta,
-):
+    target: UnitaryMatrixJax, locations: tuple[CircuitLocation, ...],
+    gates: tuple[Gate, ...], untrys: Array, n: int, dist_tol: float,
+    diff_tol_a: float, diff_tol_r: float, plateau_windows_size: int,
+    max_iters: int, min_iters: int, amount_of_starts: int,
+    diff_tol_step_r: float, diff_tol_step: int, beta: float,
+) -> dict[str, Array]:
     c1s = jnp.array([1.0] * amount_of_starts)
     plateau_windows = jnp.array(
         [[0] * plateau_windows_size for
@@ -429,7 +442,7 @@ def _sweep2(
 
     prev_step_c1s = jnp.array([1.0] * amount_of_starts)
 
-    def should_continue(var):
+    def should_continue(var: dict[str, Array]) -> bool:
         return jnp.logical_not(
             jnp.logical_or(
                 jnp.any(var['curr_reached_required_tol_l']),
@@ -447,28 +460,29 @@ def _sweep2(
         )
 
     def _while_body_to_be_vmaped(
-        untrys, c1, plateau_window, curr_plateau_calc,
-        curr_reached_required_tol, iteration_count,
-        target_untry_builder_tensor, prev_step_c1, curr_step_calc,
-    ):
+        untrys: Array, c1: float, plateau_window: Array,
+        curr_plateau_calc: bool, curr_reached_required_tol: bool,
+        iteration_count: int, target_untry_builder_tensor: Array,
+        prev_step_c1: float, curr_step_calc: float,
+    ) -> tuple[Array, float, Array, bool, bool, int, Array, float, float]:
         amount_of_gates = len(gates)
         amount_of_qudits = target.num_qudits
         target_radixes = target.radixes
 
-        untrys_as_matrixs = []
+        untrys_as_matrixes = []
         for gate_index, gate in enumerate(gates):
-            untrys_as_matrixs.append(
+            untrys_as_matrixes.append(
                 UnitaryMatrixJax(
                     _remove_padding_and_create_matrix(
                         untrys[gate_index], gate,
                     ), gate.radixes,
                 ),
             )
-        untrys = untrys_as_matrixs
+        untrys = untrys_as_matrixes
 
         if 'All_ENVS' in os.environ:
 
-            target_untry_builder_tensor = _initilize_circuit_tensor(
+            target_untry_builder_tensor = _initialize_circuit_tensor(
                 amount_of_qudits, target_radixes, locations,
                 target.numpy, untrys,
             ).tensor
@@ -485,7 +499,7 @@ def _sweep2(
                 untrys, beta,
             )
 
-            target_untry_builder_tensor = _initilize_circuit_tensor(
+            target_untry_builder_tensor = _initialize_circuit_tensor(
                 amount_of_qudits, target_radixes, locations, target.numpy,
                 untrys,
             ).tensor
@@ -496,17 +510,17 @@ def _sweep2(
             )
         else:
 
-            # initilize every "n" iterations of the loop
-            operand_for_if = (untrys, target_untry_builder_tensor)
-            initilize_body = lambda x: _initilize_circuit_tensor(
+            # initialize every "n" iterations of the loop
+            operand_for_if_init = (untrys, target_untry_builder_tensor)
+            initialize_body = lambda x: _initialize_circuit_tensor(
                 amount_of_qudits, target_radixes, locations,
                 target.numpy, x[0],
             ).tensor
-            no_initilize_body = lambda x: x[1]
+            no_initialize_body = lambda x: x[1]
 
             target_untry_builder_tensor = jax.lax.cond(
-                iteration_count % n == 0, initilize_body,
-                no_initilize_body, operand_for_if,
+                iteration_count % n == 0, initialize_body,
+                no_initialize_body, operand_for_if_init,
             )
 
             target_untry_builder = UnitaryBuilderJax(
@@ -539,7 +553,7 @@ def _sweep2(
         curr_reached_required_tol = c1 < dist_tol
 
         # Checking the plateau in a step
-        operand_for_if = (c1, prev_step_c1, curr_step_calc)
+        operand_for_if_plateau = (c1, prev_step_c1, curr_step_calc)
         reached_step_body = lambda x: (
             jnp.abs(x[0]), (x[1] - jnp.abs(x[0])) < diff_tol_step_r * x[1],
         )
@@ -547,7 +561,7 @@ def _sweep2(
 
         prev_step_c1, curr_step_calc = jax.lax.cond(
             (iteration_count + 1) % diff_tol_step == 0,
-            reached_step_body, not_reached_step_body, operand_for_if,
+            reached_step_body, not_reached_step_body, operand_for_if_plateau,
         )
 
         biggest_gate_size = max(gate.num_qudits for gate in gates)
@@ -566,7 +580,7 @@ def _sweep2(
 
     while_body_vmaped = jax.vmap(_while_body_to_be_vmaped)
 
-    def while_body(var):
+    def while_body(var: dict[str, Array]) -> dict[str, Array]:
         return Loop_vars(
             *while_body_vmaped(
                 var['untrys'], var['c1s'],

@@ -7,12 +7,12 @@ from examples.gate_deletion_syth import run_gate_del_flow_example
 from examples.toffoli_instantiation import run_toffoli_instantiation
 
 
-def test_toffoli_instantiation():
+def test_toffoli_instantiation() -> None:
     distance = run_toffoli_instantiation()
     assert distance <= 1e-10
 
 
-def test_gate_del_synth():
+def test_gate_del_synth() -> None:
     in_circuit, out_circuit, run_time = run_gate_del_flow_example()
 
     out_circuit_gates_count = out_circuit.gate_counts

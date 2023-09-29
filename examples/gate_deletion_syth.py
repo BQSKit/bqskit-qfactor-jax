@@ -18,7 +18,7 @@ from bqskit.passes import UnfoldPass
 from bqskitqfactorjax.qfactor_jax import QFactor_jax
 
 
-def run_gate_del_flow_example():
+def run_gate_del_flow_example() -> tuple[Circuit, Circuit, float]:
     # The circuit to resynthesize
     file_path = os.path.dirname(__file__) + '/grover5.qasm'
 
@@ -107,7 +107,7 @@ if __name__ == '__main__':
 
     print(
         f'Partitioning + Synthesis took {run_time}'
-        f'seconds using Qfactor JAX instantiation method.',
+        f'seconds using QFactor JAX instantiation method.',
     )
 
     print(

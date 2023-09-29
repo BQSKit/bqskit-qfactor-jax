@@ -14,7 +14,7 @@ from bqskit.qis.unitary import UnitaryMatrix
 from bqskitqfactorjax.qfactor_jax import QFactor_jax
 
 
-def run_toffoli_instantiation(dist_tol_requested=1e-10):
+def run_toffoli_instantiation(dist_tol_requested: float = 1e-10) -> float:
     qfactr_gpu_instantiator = QFactor_jax(
 
         dist_tol=dist_tol_requested,       # Stopping criteria for distance
@@ -58,7 +58,7 @@ def run_toffoli_instantiation(dist_tol_requested=1e-10):
     circuit.append_gate(VariableUnitaryGate(2), [0, 2])
     circuit.append_gate(VariableUnitaryGate(2), [0, 1])
 
-    # Instantiate the circuit template with qfactor
+    # Instantiate the circuit template with QFactor
     circuit.instantiate(
         toffoli,
         multistarts=16,

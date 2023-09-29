@@ -2,19 +2,20 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 from typing import cast
 from typing import Sequence
 
 import jax
 import jax.numpy as jnp
 import numpy as np
-import numpy.typing as npt
 from bqskit.ir.location import CircuitLocation
 from bqskit.ir.location import CircuitLocationLike
 from bqskit.qis.unitary.unitary import RealVector
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from bqskit.utils.typing import is_integer
 from bqskit.utils.typing import is_valid_radixes
+from jax import Array
 
 from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
@@ -36,7 +37,7 @@ class UnitaryBuilderJax():
         num_qudits: int,
         radixes: Sequence[int] = [],
         initial_value: UnitaryMatrix = None,
-        tensor=None,
+        tensor: Array | None = None,
     ) -> None:
         """
         UnitaryBuilderJax constructor.
@@ -295,9 +296,9 @@ class UnitaryBuilderJax():
 
     def eval_apply_right(
         self,
-        M: npt.NDArray[np.complex128],
+        M: Array,
         location: CircuitLocationLike,
-    ) -> npt.NDArray[np.complex128]:
+    ) -> Array:
         """
         Evaluate the application of `M` on the right of this UnitaryBuilder.
 
@@ -325,9 +326,9 @@ class UnitaryBuilderJax():
 
     def eval_apply_left(
         self,
-        M: npt.NDArray[np.complex128],
+        M: Array,
         location: CircuitLocationLike,
-    ) -> npt.NDArray[np.complex128]:
+    ) -> Array:
         """
         Evaluate the application of `M` on the left of this UnitaryBuilder.
 
@@ -365,7 +366,7 @@ class UnitaryBuilderJax():
 
     def calc_env_matrix(
             self, location: Sequence[int],
-    ):
+    ) -> jax.Array:
         """
         Calculates the environment matrix w.r.t. the specified location.
 
@@ -374,7 +375,7 @@ class UnitaryBuilderJax():
                 respect to the qudit indices in location.
 
         Returns:
-            np.ndarray: The environmental matrix.
+            jax.Array: The environmental matrix.
         """
 
         contraction_indexs = list(range(self.num_qudits)) + \
@@ -391,16 +392,21 @@ class UnitaryBuilderJax():
 
         return env_mat
 
-    def _tree_flatten(self):
+    def _tree_flatten(
+            self,
+    ) -> tuple[tuple[Array], dict[str, Any]]:
         children = (self.tensor,)  # arrays / dynamic values
         aux_data = {
-            'radixes': self._radixes,
+            'radixes': self.radixes,
             'num_qudits': self.num_qudits,
         }  # static values
         return (children, aux_data)
 
     @classmethod
-    def _tree_unflatten(cls, aux_data, children):
+    def _tree_unflatten(
+        cls, aux_data: dict[str, Any],
+        children: tuple[Array],
+    ) -> UnitaryBuilderJax:
         return cls(initial_value=None, tensor=children[0], **aux_data)
 
 

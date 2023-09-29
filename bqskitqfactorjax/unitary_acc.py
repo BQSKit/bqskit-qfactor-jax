@@ -6,6 +6,7 @@ from bqskit.ir.gates.parameterized.unitary import VariableUnitaryGate
 from bqskit.qis.unitary.unitary import RealVector
 from bqskit.qis.unitary.unitarymatrix import UnitaryLike
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
+from jax import Array
 
 from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
@@ -33,8 +34,8 @@ class VariableUnitaryGateAcc(VariableUnitaryGate):
         )
 
     def optimize(
-        self, env_matrix, get_untry: bool = False, prev_utry=None,
-        beta: float = 0.0,
+        self, env_matrix: Array, get_untry: bool,
+        beta: float, prev_utry: Array,
     ) -> list[float] | UnitaryMatrixJax:
         """
         Return the optimal parameters with respect to an environment matrix.
