@@ -15,7 +15,7 @@ from bqskit.passes import ScanningGateRemovalPass
 from bqskit.passes import UnfoldPass
 from bqskit.passes import ToU3Pass
 from bqskit.passes import ToVariablePass
-from bqskitgpu.qfactor_jax import QFactor_jax
+from bqskitqfactorjax.qfactor_jax import QFactor_jax
 
 
 

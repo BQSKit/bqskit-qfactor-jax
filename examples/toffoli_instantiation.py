@@ -12,7 +12,7 @@ from bqskit.ir.circuit import Circuit
 from bqskit.ir.gates import VariableUnitaryGate
 from bqskit.qis.unitary import UnitaryMatrix
 
-from bqskitgpu.qfactor_jax import QFactor_jax
+from bqskitqfactorjax.qfactor_jax import QFactor_jax
 
 
 def run_toffoli_instantiation(dist_tol_requested = 1e-10):
