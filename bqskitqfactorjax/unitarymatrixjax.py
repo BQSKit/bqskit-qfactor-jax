@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from typing import Any
 from typing import Sequence
 
 import jax
 import jax.numpy as jnp
 import jax.scipy.linalg as jla
 import numpy as np
+import numpy.typing as npt
 from bqskit.qis.unitary.unitary import Unitary
 from bqskit.qis.unitary.unitarymatrix import UnitaryLike
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
@@ -18,7 +20,6 @@ if not building_docs():
 else:
     class NDArrayOperatorsMixin:  # type: ignore
         pass
-
 
 
 # class UnitaryMatrixJax(UnitaryMatrix):
@@ -63,7 +64,7 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
         ):
             dim = np.prod(radixes)
             self._utry = jnp.array(input, dtype=jnp.complex128).reshape(
-                (dim, dim) ,
+                (dim, dim),
             )  # make sure its a square matrix
         else:
             self._utry = input
@@ -81,7 +82,6 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
 
         return int(np.prod(self.radixes))
 
-
     @property
     def num_params(self) -> int:
         """The number of real parameters this unitary-valued function takes."""
@@ -94,7 +94,6 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
             return self._num_qudits
 
         return len(self.radixes)
-
 
     @staticmethod
     def identity(dim: int, radixes: Sequence[int] = []):
@@ -184,18 +183,6 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
         """The conjugate transpose of the unitary."""
         return self.conj().T
 
-    def __array__(
-        self,
-        dtype=jnp.complex128,
-    ):
-        """Implements NumPy API for the UnitaryMatrix class."""
-        if dtype != jnp.complex128:
-            raise ValueError(
-                'UnitaryMatrix only supports JAX Complex128 dtype.',
-            )
-
-        return self._utry
-
     def get_tensor_format(self) -> Array:
         """
         Converts the unitary matrix operation into a tensor network format.
@@ -210,7 +197,6 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
 
         return self._utry.reshape(self.radixes + self.radixes)
 
-
     def __eq__(self, other: object) -> bool:
         """Check if `self` is approximately equal to `other`."""
         if isinstance(other, Unitary):
@@ -224,14 +210,15 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
 
         return NotImplemented
 
-
     def __array__(
         self,
-        dtype  = jnp.complex128,
+        dtype=jnp.complex128,
     ):
         """Implements NumPy API for the UnitaryMatrix class."""
         if dtype != jnp.complex128:
-            raise ValueError('UnitaryMatrixJax only supports JAX-Complex128 dtype.')
+            raise ValueError(
+                'UnitaryMatrixJax only supports JAX-Complex128 dtype.',
+            )
 
         return self._utry
 
@@ -286,9 +273,6 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
             return UnitaryMatrixJax(out, self.radixes)
 
         return out
-
-
-
 
     def _tree_flatten(self):
         children = (self._utry,)  # arrays / dynamic values

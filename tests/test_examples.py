@@ -9,7 +9,7 @@ from examples.toffoli_instantiation import run_toffoli_instantiation
 
 def test_toffoli_instantiation():
     distance = run_toffoli_instantiation()
-    assert distance <=1e-10
+    assert distance <= 1e-10
 
 
 def test_gate_del_synth():

@@ -6,7 +6,6 @@ from bqskit.ir.gates.parameterized.unitary import VariableUnitaryGate
 from bqskit.qis.unitary.unitary import RealVector
 from bqskit.qis.unitary.unitarymatrix import UnitaryLike
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
-from jax import Array
 
 from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
@@ -28,16 +27,25 @@ class VariableUnitaryGateAcc(VariableUnitaryGate):
         real = jnp.array(params[:mid], dtype=jnp.complex128)
         imag = 1j * jnp.array(params[mid:], dtype=jnp.complex128)
         x = real + imag
-        return UnitaryMatrixJax.closest_to(jnp.reshape(x, self.shape), self.radixes)
+        return UnitaryMatrixJax.closest_to(
+            jnp.reshape(x, self.shape),
+            self.radixes,
+        )
 
-    def optimize(self, env_matrix, get_untry: bool = False, prev_utry=None, beta:float=0.0) -> list[float] | UnitaryMatrixJax:
+    def optimize(
+        self, env_matrix, get_untry: bool = False, prev_utry=None,
+        beta: float = 0.0,
+    ) -> list[float] | UnitaryMatrixJax:
         """
         Return the optimal parameters with respect to an environment matrix.
 
         See :class:`LocallyOptimizableUnitary` for more info.
         """
 
-        U, _, Vh = jla.svd((1-beta) * env_matrix + beta*prev_utry._utry.conj().T)
+        U, _, Vh = jla.svd(
+            (1 - beta) * env_matrix
+            + beta * prev_utry._utry.conj().T,
+        )
         utry = Vh.conj().T @ U.conj().T
 
         if get_untry:

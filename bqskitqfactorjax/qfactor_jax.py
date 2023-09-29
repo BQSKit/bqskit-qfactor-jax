@@ -86,7 +86,6 @@ class QFactor_jax(Instantiater):
 
         return self.multi_start_instantiate(circuit, target, 1)
 
-
     def multi_start_instantiate_inplace(
         self,
         circuit: Circuit,
@@ -105,9 +104,6 @@ class QFactor_jax(Instantiater):
         target = self.check_target(target)
         params = self.multi_start_instantiate(circuit, target, num_starts)
         circuit.set_params(params)
-
-
-
 
     async def multi_start_instantiate_async(
         self,
@@ -167,7 +163,8 @@ class QFactor_jax(Instantiater):
         res_var = _sweep2_jited(
             target, locations, gates, untrys, self.reset_iter, self.dist_tol,
             self.diff_tol_a, self.diff_tol_r, self.plateau_windows_size,
-            self.max_iters, self.min_iters, num_starts, self.diff_tol_step_r, self.diff_tol_step, self.beta,
+            self.max_iters, self.min_iters, num_starts, self.diff_tol_step_r,
+            self.diff_tol_step, self.beta,
         )
 
         it = res_var['iteration_counts'][0]
@@ -210,12 +207,12 @@ class QFactor_jax(Instantiater):
             )
         params = []
         for untry, gate in zip(untrys[best_start], gates):
-            if  isinstance(gate, ConstantGate):
+            if isinstance(gate, ConstantGate):
                 params.extend([])
             else:
                 params.extend(
                     gate.get_params(
-                    _remove_padding_and_create_matrix(untry, gate),
+                        _remove_padding_and_create_matrix(untry, gate),
                     ),
                 )
 
@@ -301,7 +298,7 @@ def _initilize_circuit_tensor(
 
 
 def _single_sweep(
-    locations, gates, amount_of_gates, target_untry_builder:UnitaryBuilderJax,
+    locations, gates, amount_of_gates, target_untry_builder: UnitaryBuilderJax,
     untrys, beta=0,
 ):
     # from right to left
@@ -318,7 +315,10 @@ def _single_sweep(
         # Update current gate
         if gate.num_params > 0:
             env = target_untry_builder.calc_env_matrix(location)
-            untry = gate.optimize(env, get_untry=True, prev_utry=untry, beta=beta)
+            untry = gate.optimize(
+                env, get_untry=True, prev_utry=untry,
+                beta=beta,
+            )
             untrys[k] = untry
 
             # Add updated gate to left of circuit tensor
@@ -340,7 +340,7 @@ def _single_sweep(
         # Update current gate
         if gate.num_params > 0:
             env = target_untry_builder.calc_env_matrix(location)
-            untry = gate.optimize(env, get_untry=True, prev_utry=untry, beta=beta)
+            untry = gate.optimize(env, True, untry, beta)
             untrys[k] = untry
 
             # Add updated gate to right of circuit tensor
@@ -349,7 +349,6 @@ def _single_sweep(
         )
 
     return target_untry_builder, untrys
-
 
 
 def _single_sweep_sim(
@@ -372,17 +371,15 @@ def _single_sweep_sim(
         # Update current gate
         if gate.num_params > 0:
             env = target_untry_builder.calc_env_matrix(location)
-            new_untrys.append(gate.optimize(env, get_untry=True, prev_utry=untry, beta=beta))
+            new_untrys.append(gate.optimize(env, True, untry, beta))
         else:
             new_untrys.append(untry)
-
 
         target_untry_builder.apply_left(
             untry, location, check_arguments=False,
         )
 
     return new_untrys[::-1]
-
 
 
 def _apply_padding_and_flatten(untry, gate, max_gate_size):
@@ -472,7 +469,8 @@ def _sweep2(
         if 'All_ENVS' in os.environ:
 
             target_untry_builder_tensor = _initilize_circuit_tensor(
-                    amount_of_qudits, target_radixes, locations, target.numpy, untrys,
+                amount_of_qudits, target_radixes, locations,
+                target.numpy, untrys,
             ).tensor
 
             target_untry_builder = UnitaryBuilderJax(
@@ -480,16 +478,16 @@ def _sweep2(
                 tensor=target_untry_builder_tensor,
             )
 
-
             iteration_count = iteration_count + 1
 
-
             untrys = _single_sweep_sim(
-                locations, gates, amount_of_gates, target_untry_builder, untrys, beta,
+                locations, gates, amount_of_gates, target_untry_builder,
+                untrys, beta,
             )
 
             target_untry_builder_tensor = _initilize_circuit_tensor(
-                amount_of_qudits, target_radixes, locations, target.numpy, untrys,
+                amount_of_qudits, target_radixes, locations, target.numpy,
+                untrys,
             ).tensor
 
             target_untry_builder = UnitaryBuilderJax(
@@ -498,10 +496,11 @@ def _sweep2(
             )
         else:
 
-        # initilize every "n" iterations of the loop
+            # initilize every "n" iterations of the loop
             operand_for_if = (untrys, target_untry_builder_tensor)
             initilize_body = lambda x: _initilize_circuit_tensor(
-                amount_of_qudits, target_radixes, locations, target.numpy, x[0],
+                amount_of_qudits, target_radixes, locations,
+                target.numpy, x[0],
             ).tensor
             no_initilize_body = lambda x: x[1]
 
@@ -515,11 +514,11 @@ def _sweep2(
                 tensor=target_untry_builder_tensor,
             )
 
-
             iteration_count = iteration_count + 1
 
             target_untry_builder, untrys = _single_sweep(
-                locations, gates, amount_of_gates, target_untry_builder, untrys, beta,
+                locations, gates, amount_of_gates, target_untry_builder,
+                untrys, beta,
             )
 
         c2 = c1
@@ -539,13 +538,15 @@ def _sweep2(
         )
         curr_reached_required_tol = c1 < dist_tol
 
-        ##### Checking the plateau in a step
+        # Checking the plateau in a step
         operand_for_if = (c1, prev_step_c1, curr_step_calc)
-        reached_step_body = lambda x: (jnp.abs(x[0]), (x[1] - jnp.abs(x[0])) < diff_tol_step_r * x[1])
+        reached_step_body = lambda x: (
+            jnp.abs(x[0]), (x[1] - jnp.abs(x[0])) < diff_tol_step_r * x[1],
+        )
         not_reached_step_body = lambda x: (x[1], x[2])
 
         prev_step_c1, curr_step_calc = jax.lax.cond(
-            (iteration_count+1) % diff_tol_step == 0,
+            (iteration_count + 1) % diff_tol_step == 0,
             reached_step_body, not_reached_step_body, operand_for_if,
         )
 
@@ -594,18 +595,19 @@ def _sweep2(
         jnp.array([False] * amount_of_starts),
     )
 
-
     if 'PRINT_LOSS_QFACTOR' in os.environ:
         loop_var = initial_loop_var
         i = 1
-        while(should_continue(loop_var)):
+        while should_continue(loop_var):
             loop_var = while_body(loop_var)
 
-            print('LOSS:',i , loop_var['c1s'])
-            i +=1
+            print('LOSS:', i, loop_var['c1s'])
+            i += 1
         res_var = loop_var
     else:
-        res_var = jax.lax.while_loop(should_continue, while_body, initial_loop_var)
+        res_var = jax.lax.while_loop(
+            should_continue, while_body, initial_loop_var,
+        )
 
     return res_var
 

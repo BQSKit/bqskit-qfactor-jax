@@ -12,7 +12,6 @@ import numpy.typing as npt
 from bqskit.ir.location import CircuitLocation
 from bqskit.ir.location import CircuitLocationLike
 from bqskit.qis.unitary.unitary import RealVector
-from bqskit.qis.unitary.unitarybuilder import UnitaryBuilder
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from bqskit.utils.typing import is_integer
 from bqskit.utils.typing import is_valid_radixes
@@ -40,7 +39,7 @@ class UnitaryBuilderJax():
         tensor=None,
     ) -> None:
         """
-        UnitaryBuilder constructor.
+        UnitaryBuilderJax constructor.
 
         Args:
             num_qudits (int): The number of qudits to build a Unitary for.
@@ -56,7 +55,7 @@ class UnitaryBuilderJax():
                 `num_qudits`.
 
         Examples:
-            >>> builder = UnitaryBuilder(4)  # Creates a 4-qubit builder.
+            >>> builder = UnitaryBuilderJax(4)  # Creates a 4-qubit builder.
         """
         if not is_integer(num_qudits):
             raise TypeError(
@@ -111,7 +110,6 @@ class UnitaryBuilderJax():
         else:
             self.tensor = tensor
 
-
     def get_unitary(self, params: RealVector = []) -> UnitaryMatrixJax:
         """Build the unitary, see :func:`Unitary.get_unitary` for more."""
         if isinstance(self.tensor, jnp.ndarray):
@@ -119,6 +117,7 @@ class UnitaryBuilderJax():
         else:
             utry = self.tensor
         return UnitaryMatrixJax(utry, self.radixes)
+
     def apply_right(
         self,
         utry: UnitaryMatrix,
@@ -391,7 +390,6 @@ class UnitaryBuilderJax():
         env_mat = env_tensor.reshape((2**len(location), -1))
 
         return env_mat
-
 
     def _tree_flatten(self):
         children = (self.tensor,)  # arrays / dynamic values

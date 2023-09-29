@@ -92,7 +92,7 @@ def run_gate_del_flow_example():
             runtime_log_level=logging.INFO,
     ) as compiler:
 
-        print(f'Starting gate deletion flow using Qfactor JAX')
+        print('Starting gate deletion flow using Qfactor JAX')
         start = timer()
         out_circuit = compiler.compile(in_circuit, passes)
         end = timer()
