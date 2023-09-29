@@ -1,5 +1,5 @@
 """This example shows how to resynthesize a circuit using a gate deletion flow,
-that utilizses Qfacto's GPU implementation."""
+that utilizes QFactor's GPU implementation."""
 from __future__ import annotations
 
 import logging
@@ -18,15 +18,17 @@ from bqskit.passes import UnfoldPass
 from bqskitqfactorjax.qfactor_jax import QFactor_jax
 
 
-def run_gate_del_flow_example(amount_of_workers=10) -> tuple[Circuit, Circuit, float]:
+def run_gate_del_flow_example(
+        amount_of_workers: int = 10,
+) -> tuple[Circuit, Circuit, float]:
     # The circuit to resynthesize
     file_path = os.path.dirname(__file__) + '/grover5.qasm'
 
-    # Set the size of paritions
+    # Set the size of partitions
     partition_size = 4
 
     # QFactor hyperparameters -
-    # see intantiation example for more detiles on the parameters
+    # see instantiation example for more details on the parameters
     num_multistarts = 32
     max_iters = 100000
     min_iters = 3
@@ -60,7 +62,7 @@ def run_gate_del_flow_example(amount_of_workers=10) -> tuple[Circuit, Circuit, f
         'multistarts': num_multistarts,
     }
 
-    # Prepare the comiplation passes
+    # Prepare the compilation passes
     passes = [
         # Convert U3's to VU
         ToVariablePass(),
@@ -89,7 +91,7 @@ def run_gate_del_flow_example(amount_of_workers=10) -> tuple[Circuit, Circuit, f
             runtime_log_level=logging.INFO,
     ) as compiler:
 
-        print('Starting gate deletion flow using Qfactor JAX')
+        print('Starting gate deletion flow using QFactor JAX')
         start = timer()
         out_circuit = compiler.compile(in_circuit, passes)
         end = timer()
