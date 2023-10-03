@@ -12,6 +12,7 @@ import numpy.typing as npt
 from bqskit.ir import CircuitLocation
 from bqskit.ir import Gate
 from bqskit.ir.gates import ConstantGate
+from bqskit.ir.gates import U3Gate
 from bqskit.ir.gates import VariableUnitaryGate
 from bqskit.ir.opt import Instantiater
 from bqskit.qis import UnitaryMatrix
@@ -175,7 +176,7 @@ class QFactor_sample_jax(Instantiater):
             _jited_loop_vmaped_state_sample_sweep(
                 target, num_qudits, radixes, locations, gates, untrys,
                 self.dist_tol, self.max_iters, self.beta,
-                num_starts, self.min_iters, self.overtrian_ratio,
+                num_starts, self.min_iters, self.overtrain_ratio,
                 training_states_kets, validation_states_kets,
             )
 
@@ -212,6 +213,65 @@ class QFactor_sample_jax(Instantiater):
                 )
 
         return np.array(params)
+
+    @staticmethod
+    def get_method_name() -> str:
+        """Return the name of this method."""
+        return 'qfactor_jax_batched_jit'
+
+    @staticmethod
+    def can_internally_perform_multistart() -> bool:
+        """Probes if the instantiater can internally perform multistart."""
+        return True
+
+    @staticmethod
+    def is_capable(circuit: Circuit) -> bool:
+        """Return true if the circuit can be instantiated."""
+        return all(
+            isinstance(
+                gate, (
+                    VariableUnitaryGate,
+                    VariableUnitaryGateAcc, U3Gate, ConstantGate,
+                ),
+            )
+            for gate in circuit.gate_set
+        )
+
+    @staticmethod
+    def get_violation_report(circuit: Circuit) -> str:
+        """
+        Return a message explaining why `circuit` cannot be instantiated.
+
+        Args:
+            circuit (Circuit): Generate a report for this circuit.
+
+        Raises:
+            ValueError: If `circuit` can be instantiated with this
+                instantiater.
+        """
+
+        invalid_gates = {
+            gate
+            for gate in circuit.gate_set
+            if not isinstance(
+                gate, (
+                    VariableUnitaryGate,
+                    VariableUnitaryGateAcc,
+                    U3Gate,
+                    ConstantGate,
+                ),
+            )
+        }
+
+        if len(invalid_gates) == 0:
+            raise ValueError('Circuit can be instantiated.')
+
+        return (
+            'Cannot instantiate circuit with qfactor because'
+            ' the following gates are not locally optimizable with jax: %s.'
+            % ', '.join(str(g) for g in invalid_gates)
+        )
+
 
     @staticmethod
     def generate_random_states(
@@ -260,11 +320,11 @@ def _loop_vmaped_state_sample_sweep(
 
     validation_states_bras = jax.vmap(
         lambda ket: ket.T.conj(),
-    )(validation_states_kets)
+    )(jnp.array(validation_states_kets))
 
     training_states_bras = jax.vmap(
         lambda ket: ket.T.conj(),
-    )(training_states_kets)
+    )(jnp.array(training_states_kets))
 
     # Calculate the A and B0 tensor
     target_dagger = target.T.conj()
@@ -301,35 +361,31 @@ def _loop_vmaped_state_sample_sweep(
         _, training_costs, validation_costs, iteration_counts = loop_var
 
         any_reached_required_tol = jnp.any(
-            jax.vmap(
-                lambda cost: cost <= dist_tol,
-                training_costs,
-            ),
-        )
+                                    jax.vmap(
+                                        lambda cost: cost <= dist_tol
+                                        )(training_costs)
+                                    )
+        
         reached_max_iteration = iteration_counts[0] > max_iters
-
         above_min_iteration = iteration_counts[0] > min_iters
 
         any_reached_over_training = jnp.any(
-            jax.vmap(
-                lambda train_cost, val_cost:
-                val_cost > overtrian_ratio * train_cost,
-                (training_costs, validation_costs),
-            ),
-        )
+                                        jax.vmap(
+                                            lambda train_cost, val_cost:
+                                            val_cost > overtrian_ratio * train_cost,)
+                                            (training_costs, validation_costs)
+                                        ),
 
         return jnot(
-            jor(
-                any_reached_required_tol,
                 jor(
-                    reached_max_iteration,
-                    jand(
-                        above_min_iteration,
-                        any_reached_over_training,
+                    any_reached_required_tol,
+                    jor(
+                        reached_max_iteration,
+                        # jand(above_min_iteration, any_reached_over_training),
+                        any_reached_over_training
+                        ),
                     ),
-                ),
-            ),
-        )
+                )
 
     def _while_body_to_be_vmaped(
         loop_var: tuple[
