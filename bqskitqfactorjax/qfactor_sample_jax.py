@@ -7,9 +7,6 @@ from typing import TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
-import jax.numpy.logical_and as jand
-import jax.numpy.logical_not as jnot
-import jax.numpy.logical_or as jor
 import numpy as np
 import numpy.typing as npt
 from bqskit.ir import CircuitLocation
@@ -21,15 +18,18 @@ from bqskit.qis import UnitaryMatrix
 from bqskit.qis.state import StateSystem
 from bqskit.qis.state import StateVector
 from jax import Array
+from jax.numpy import logical_and as jand
+from jax.numpy import logical_not as jnot
+from jax.numpy import logical_or as jor
 from scipy.stats import unitary_group
 
-from bqskitgpu.qfactor_jax import _apply_padding_and_flatten
-from bqskitgpu.qfactor_jax import _remove_padding_and_create_matrix
-from bqskitgpu.singlelegedtensor import LHSTensor
-from bqskitgpu.singlelegedtensor import RHSTensor
-from bqskitgpu.singlelegedtensor import SingleLegSideTensor
-from bqskitgpu.unitary_acc import VariableUnitaryGateAcc
-from bqskitgpu.unitarymatrixjax import UnitaryMatrixJax
+from bqskitqfactorjax.qfactor_jax import _apply_padding_and_flatten
+from bqskitqfactorjax.qfactor_jax import _remove_padding_and_create_matrix
+from bqskitqfactorjax.singlelegedtensor import LHSTensor
+from bqskitqfactorjax.singlelegedtensor import RHSTensor
+from bqskitqfactorjax.singlelegedtensor import SingleLegSideTensor
+from bqskitqfactorjax.unitary_acc import VariableUnitaryGateAcc
+from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
 if TYPE_CHECKING:
     from bqskit.ir.circuit import Circuit
@@ -165,10 +165,10 @@ class QFactor_sample_jax(Instantiater):
         amount_of_trainng_states = np.round(amount_of_trainng_states)
 
         training_states_kets = self.generate_random_states(
-            amount_of_trainng_states, np.prod(radixes),
+            amount_of_trainng_states, int(np.prod(radixes)),
         )
         validation_states_kets = self.generate_random_states(
-            self.amount_of_validation_states, np.prod(radixes),
+            self.amount_of_validation_states, int(np.prod(radixes)),
         )
 
         final_untrys, training_costs, validation_costs, iteration_counts = \
@@ -413,7 +413,7 @@ def state_sample_single_sweep(
     )
 
     # iterate over every gate from right to left and update it
-    new_untrys = [None] * amount_of_gates
+    new_untrys_rev: list[UnitaryMatrixJax] = []
     a_train: RHSTensor = A_train.copy()
     a_val: RHSTensor = A_val.copy()
     for idx in reversed(range(amount_of_gates)):
@@ -428,11 +428,11 @@ def state_sample_single_sweep(
                 prev_utry=utry, beta=beta,
             )
 
-        new_untrys[idx] = utry
+        new_untrys_rev.append(utry)
         a_train.apply_left(utry, location)
         a_val.apply_left(utry, location)
 
-    untrys = new_untrys
+    untrys = new_untrys_rev[::-1]
 
     training_cost = calc_cost(A_train, B0_train, a_train)
 

@@ -1,4 +1,9 @@
 from __future__ import annotations
 __all__ = [
-    'qfactor_jax', 'unitary_acc', 'unitarybuilderjax', 'unitarymatrixjax',
+    'qfactor_jax',
+    'qfactor_sample_jax',
+    'unitary_acc',
+    'unitarybuilderjax',
+    'unitarymatrixjax',
+    'singlelegedtensor',
 ]
