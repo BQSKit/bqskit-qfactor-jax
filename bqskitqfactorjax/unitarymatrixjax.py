@@ -1,20 +1,19 @@
 from __future__ import annotations
 
+from typing import Any
 from typing import Sequence
 
 import jax
 import jax.numpy as jnp
 import jax.scipy.linalg as jla
 import numpy as np
-from jax import Array
-
+import numpy.typing as npt
+from bqskit.qis.unitary.unitary import Unitary
 from bqskit.qis.unitary.unitarymatrix import UnitaryLike
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from bqskit.utils.docs import building_docs
 from bqskit.utils.typing import is_square_matrix
-
-from bqskit.qis.unitary.unitary import Unitary
-from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
+from jax import Array
 
 if not building_docs():
     from numpy.lib.mixins import NDArrayOperatorsMixin
@@ -23,8 +22,6 @@ else:
         pass
 
 
-
-# class UnitaryMatrixJax(UnitaryMatrix):
 class UnitaryMatrixJax(NDArrayOperatorsMixin):
     def __init__(
         self,
@@ -66,7 +63,7 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
         ):
             dim = np.prod(self._radixes)
             self._utry = jnp.array(input, dtype=jnp.complex128).reshape(
-                (dim, dim) ,
+                (dim, dim),
             )  # make sure its a square matrix
         else:
             self._utry = input
@@ -83,7 +80,6 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
             return self._dim
 
         return int(np.prod(self.radixes))
-    
 
     @property
     def num_params(self) -> int:
@@ -98,9 +94,8 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
 
         return len(self.radixes)
 
-
     @staticmethod
-    def identity(dim: int, radixes: Sequence[int] = []):
+    def identity(dim: int, radixes: Sequence[int] = []) -> UnitaryMatrixJax:
         """
         Construct an identity UnitaryMatrix.
 
@@ -114,7 +109,7 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
             UnitaryMatrix: An identity matrix.
 
         Raises:
-            ValueError: If `dim` is nonpositive.
+            ValueError: If `dim` is non-positive.
         """
         if dim <= 0:
             raise ValueError('Invalid dimension for identity matrix.')
@@ -122,9 +117,9 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
 
     @staticmethod
     def closest_to(
-        M,
+        M: npt.NDArray[np.complex128],
         radixes: Sequence[int] = [],
-    ):
+    ) -> UnitaryMatrixJax:
         """
         Calculate and return the closest unitary to a given matrix.
 
@@ -154,18 +149,21 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
     def numpy(self) -> Array:
         """The JaxNumPy array holding the unitary."""
         return self._utry
-    
+
     @property
     def jaxnumpy(self) -> Array:
         """The JaxNumPy array holding the unitary."""
         return self._utry
 
     @staticmethod
-    def random(num_qudits: int, radixes: Sequence[int] = []):
+    def random(
+        num_qudits: int,
+        radixes: Sequence[int] = [],
+    ) -> UnitaryMatrixJax:
         return UnitaryMatrixJax(UnitaryMatrix.random(num_qudits, radixes))
 
     @staticmethod
-    def from_file(filename: str):
+    def from_file(filename: str) -> UnitaryMatrixJax:
         """Load a unitary from a file."""
         return UnitaryMatrixJax(jnp.loadtxt(filename, dtype=jnp.complex128))
 
@@ -173,59 +171,44 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
     def T(self) -> UnitaryMatrixJax:
         """The transpose of the unitary."""
         return UnitaryMatrixJax(self._utry.T, self.radixes)
-    
+
     def conj(self) -> UnitaryMatrixJax:
         """Return the complex conjugate unitary matrix."""
         return UnitaryMatrixJax(self._utry.conj(), self.radixes)
-    
-    def get_unitary(self, params) -> UnitaryMatrixJax:
+
+    def get_unitary(self, params: Any) -> UnitaryMatrixJax:
         """Return the same object, satisfies the :class:`Unitary` API."""
         return self
-    
+
     @property
     def dagger(self) -> UnitaryMatrixJax:
         """The conjugate transpose of the unitary."""
         return self.conj().T
 
-    def __array__(
-        self,
-        dtype=jnp.complex128,
-    ):
-        """Implements NumPy API for the UnitaryMatrix class."""
-        if dtype != jnp.complex128:
-            raise ValueError(
-                'UnitaryMatrix only supports JAX Complex128 dtype.',
-            )
-
-        return self._utry
-    
     def get_tensor_format(self) -> Array:
         """
         Converts the unitary matrix operation into a tensor network format.
 
-         Indices are counted top to bottom, right to left:
-              .-----.
-           n -|     |- 0
-         n+1 -|     |- 1
-              .     .
-              .     .
-              .     .
-        2n-1 -|     |- n-1
-              '-----'
+        Indices are counted top to bottom, right to left:
+                 .-----.
+              n -|     |- 0
+            n+1 -|     |- 1
+                 .     .
+                 .     .
+                 .     .
+           2n-1 -|     |- n-1
+                 '-----'
 
-
-         Returns
-             Union[DeviceArray, np.ndarray]: A tensor representing this matrix.
+         Returns     Array: A tensor representing this matrix.
         """
 
         return self._utry.reshape(self.radixes + self.radixes)
-    
 
     def __eq__(self, other: object) -> bool:
         """Check if `self` is approximately equal to `other`."""
         if isinstance(other, Unitary):
             other_unitary = other.get_unitary()
-            if self.shape != other_unitary.shape:
+            if self._utry.shape != other_unitary.shape:
                 return False
             return np.allclose(self, other_unitary)
 
@@ -233,15 +216,16 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
             return np.allclose(self, other)
 
         return NotImplemented
-    
 
     def __array__(
         self,
-        dtype  = jnp.complex128,
-    ):
+        dtype: np.typing.DTypeLike = jnp.complex128,
+    ) -> Array:
         """Implements NumPy API for the UnitaryMatrix class."""
         if dtype != jnp.complex128:
-            raise ValueError('UnitaryMatrixJax only supports JAX-Complex128 dtype.')
+            raise ValueError(
+                'UnitaryMatrixJax only supports JAX-Complex128 dtype.',
+            )
 
         return self._utry
 
@@ -250,7 +234,7 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
         ufunc: np.ufunc,
         method: str,
         *inputs: Array,
-        **kwargs,
+        **kwargs: dict[str, Any],
     ) -> UnitaryMatrixJax | Array[jnp.complex128]:
         """Implements NumPy API for the UnitaryMatrix class."""
         if method != '__call__':
@@ -297,10 +281,9 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
 
         return out
 
-
-
-
-    def _tree_flatten(self):
+    def _tree_flatten(
+            self,
+    ) -> tuple[tuple[Array], dict[str, Any]]:
         children = (self._utry,)  # arrays / dynamic values
         aux_data = {
             'radixes': self._radixes,
@@ -309,7 +292,10 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
         return (children, aux_data)
 
     @classmethod
-    def _tree_unflatten(cls, aux_data, children):
+    def _tree_unflatten(
+        cls, aux_data: dict[str, Any],
+        children: tuple[Array],
+    ) -> UnitaryMatrixJax:
         return cls(*children, **aux_data)
 
 

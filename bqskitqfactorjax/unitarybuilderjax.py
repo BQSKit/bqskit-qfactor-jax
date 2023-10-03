@@ -2,21 +2,22 @@
 from __future__ import annotations
 
 import logging
-from typing import Sequence, cast
+from typing import Any
+from typing import cast
+from typing import Sequence
 
 import jax
 import jax.numpy as jnp
 import numpy as np
-import numpy.typing as npt
-
+from bqskit.ir.location import CircuitLocation
+from bqskit.ir.location import CircuitLocationLike
 from bqskit.qis.unitary.unitary import RealVector
-from bqskit.qis.unitary.unitarybuilder import UnitaryBuilder
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from bqskit.utils.typing import is_integer
 from bqskit.utils.typing import is_valid_radixes
-from bqskit.ir.location import CircuitLocationLike
-from bqskit.ir.location import CircuitLocation
-from bqskitgpu.unitarymatrixjax import UnitaryMatrixJax
+from jax import Array
+
+from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +37,10 @@ class UnitaryBuilderJax():
         num_qudits: int,
         radixes: Sequence[int] = [],
         initial_value: UnitaryMatrix = None,
-        tensor=None,
+        tensor: Array | None = None,
     ) -> None:
         """
-        UnitaryBuilder constructor.
+        UnitaryBuilderJax constructor.
 
         Args:
             num_qudits (int): The number of qudits to build a Unitary for.
@@ -49,13 +50,13 @@ class UnitaryBuilderJax():
                 qudit. Defaults to qubits.
 
         Raises:
-            ValueError: If `num_qudits` is nonpositive.
+            ValueError: If `num_qudits` is non-positive.
 
             ValueError: If the length of `radixes` is not equal to
                 `num_qudits`.
 
         Examples:
-            >>> builder = UnitaryBuilder(4)  # Creates a 4-qubit builder.
+            >>> builder = UnitaryBuilderJax(4)  # Creates a 4-qubit builder.
         """
         if not is_integer(num_qudits):
             raise TypeError(
@@ -110,7 +111,6 @@ class UnitaryBuilderJax():
         else:
             self.tensor = tensor
 
-
     def get_unitary(self, params: RealVector = []) -> UnitaryMatrixJax:
         """Build the unitary, see :func:`Unitary.get_unitary` for more."""
         if isinstance(self.tensor, jnp.ndarray):
@@ -118,6 +118,7 @@ class UnitaryBuilderJax():
         else:
             utry = self.tensor
         return UnitaryMatrixJax(utry, self.radixes)
+
     def apply_right(
         self,
         utry: UnitaryMatrixJax,
@@ -187,8 +188,8 @@ class UnitaryBuilderJax():
         else:
             offset = utry_size
 
-        utry_tensor_indexs = [i for i in range(2 * utry_size)]
-        utry_builder_tensor_indexs = [
+        utry_tensor_indexes = [i for i in range(2 * utry_size)]
+        utry_builder_tensor_indexes = [
             2 * utry_size + i for i in range(2 * self.num_qudits)
         ]
         output_tensor_index = [
@@ -197,12 +198,12 @@ class UnitaryBuilderJax():
         ]
 
         for i, loc in enumerate(location):
-            utry_builder_tensor_indexs[loc] = offset + i
+            utry_builder_tensor_indexes[loc] = offset + i
             output_tensor_index[loc] = (utry_size - offset) + i
 
         self.tensor = jnp.einsum(
-            utry_tensor, utry_tensor_indexs,
-            self.tensor, utry_builder_tensor_indexs, output_tensor_index,
+            utry_tensor, utry_tensor_indexes,
+            self.tensor, utry_builder_tensor_indexes, output_tensor_index,
         )
 
     def apply_left(
@@ -274,8 +275,8 @@ class UnitaryBuilderJax():
         else:
             offset = 0
 
-        utry_tensor_indexs = [i for i in range(2 * utry_size)]
-        utry_builder_tensor_indexs = [
+        utry_tensor_indexes = [i for i in range(2 * utry_size)]
+        utry_builder_tensor_indexes = [
             2 * utry_size + i for i in range(2 * self.num_qudits)
         ]
         output_tensor_index = [
@@ -284,20 +285,20 @@ class UnitaryBuilderJax():
         ]
 
         for i, loc in enumerate(location):
-            utry_builder_tensor_indexs[self.num_qudits + loc] = offset + i
+            utry_builder_tensor_indexes[self.num_qudits + loc] = offset + i
             output_tensor_index[
                 self.num_qudits + loc
             ] = (utry_size - offset) + i
         self.tensor = jnp.einsum(
-            utry_tensor, utry_tensor_indexs,
-            self.tensor, utry_builder_tensor_indexs, output_tensor_index,
+            utry_tensor, utry_tensor_indexes,
+            self.tensor, utry_builder_tensor_indexes, output_tensor_index,
         )
 
     def eval_apply_right(
         self,
-        M: npt.NDArray[np.complex128],
+        M: Array,
         location: CircuitLocationLike,
-    ) -> npt.NDArray[np.complex128]:
+    ) -> Array:
         """
         Evaluate the application of `M` on the right of this UnitaryBuilder.
 
@@ -325,9 +326,9 @@ class UnitaryBuilderJax():
 
     def eval_apply_left(
         self,
-        M: npt.NDArray[np.complex128],
+        M: Array,
         location: CircuitLocationLike,
-    ) -> npt.NDArray[np.complex128]:
+    ) -> Array:
         """
         Evaluate the application of `M` on the left of this UnitaryBuilder.
 
@@ -365,7 +366,7 @@ class UnitaryBuilderJax():
 
     def calc_env_matrix(
             self, location: Sequence[int],
-    ):
+    ) -> jax.Array:
         """
         Calculates the environment matrix w.r.t. the specified location.
 
@@ -374,34 +375,38 @@ class UnitaryBuilderJax():
                 respect to the qudit indices in location.
 
         Returns:
-            np.ndarray: The environmental matrix.
+            jax.Array: The environmental matrix.
         """
 
-        contraction_indexs = list(range(self.num_qudits)) + \
+        contraction_indexes = list(range(self.num_qudits)) + \
             list(range(self.num_qudits))
         for i, loc in enumerate(location):
-            contraction_indexs[loc + self.num_qudits] = self.num_qudits + i + 1
+            contraction_indexes[loc + self.num_qudits] = self.num_qudits + i + 1
 
-        contraction_indexs_str = ''.join(
-            [chr(ord('a') + i) for i in contraction_indexs],
+        contraction_indexes_str = ''.join(
+            [chr(ord('a') + i) for i in contraction_indexes],
         )
 
-        env_tensor = jnp.einsum(contraction_indexs_str, self.tensor)
+        env_tensor = jnp.einsum(contraction_indexes_str, self.tensor)
         env_mat = env_tensor.reshape((2**len(location), -1))
 
         return env_mat
 
-
-    def _tree_flatten(self):
+    def _tree_flatten(
+            self,
+    ) -> tuple[tuple[Array], dict[str, Any]]:
         children = (self.tensor,)  # arrays / dynamic values
         aux_data = {
-            'radixes': self._radixes,
+            'radixes': self.radixes,
             'num_qudits': self.num_qudits,
         }  # static values
         return (children, aux_data)
 
     @classmethod
-    def _tree_unflatten(cls, aux_data, children):
+    def _tree_unflatten(
+        cls, aux_data: dict[str, Any],
+        children: tuple[Array],
+    ) -> UnitaryBuilderJax:
         return cls(initial_value=None, tensor=children[0], **aux_data)
 
 

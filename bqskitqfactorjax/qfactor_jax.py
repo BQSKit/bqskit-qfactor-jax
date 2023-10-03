@@ -20,9 +20,9 @@ from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from jax import Array
 from scipy.stats import unitary_group
 
-from bqskitgpu.unitary_acc import VariableUnitaryGateAcc
-from bqskitgpu.unitarybuilderjax import UnitaryBuilderJax
-from bqskitgpu.unitarymatrixjax import UnitaryMatrixJax
+from bqskitqfactorjax.unitary_acc import VariableUnitaryGateAcc
+from bqskitqfactorjax.unitarybuilderjax import UnitaryBuilderJax
+from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
 if TYPE_CHECKING:
     from bqskit.ir.circuit import Circuit
