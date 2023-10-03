@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Sequence
 from typing import TYPE_CHECKING
 
 import jax
@@ -130,6 +131,8 @@ class QFactor_sample_jax(Instantiater):
         locations = tuple([op.location for op in circuit])
         gates = tuple([op.gate for op in circuit])
         biggest_gate_size = max(gate.num_qudits for gate in gates)
+        radixes = target.radixes
+        num_qudits = target.num_qudits
 
         untrys = []
 
@@ -162,17 +165,19 @@ class QFactor_sample_jax(Instantiater):
         amount_of_trainng_states = np.round(amount_of_trainng_states)
 
         training_states_kets = self.generate_random_states(
-            amount_of_trainng_states,
+            amount_of_trainng_states, np.prod(radixes),
         )
         validation_states_kets = self.generate_random_states(
-            self.amount_of_validation_states,
+            self.amount_of_validation_states, np.prod(radixes),
         )
 
-        final_untrys, training_costs, validation_costs, iteration_counts = _jited_loop_vmaped_state_sample_sweep(
-            target, locations, gates, untrys,
-            self.dist_tol, self.max_iters, self.beta,
-            training_states_kets, validation_states_kets,
-        )
+        final_untrys, training_costs, validation_costs, iteration_counts = \
+            _jited_loop_vmaped_state_sample_sweep(
+                target, num_qudits, radixes, locations, gates, untrys,
+                self.dist_tol, self.max_iters, self.beta,
+                num_starts, self.min_iters, self.overtrian_ratio,
+                training_states_kets, validation_states_kets,
+            )
 
         it = iteration_counts[0]
         untrys = final_untrys
@@ -195,7 +200,7 @@ class QFactor_sample_jax(Instantiater):
                 f'with c1s {training_costs}.',
             )
 
-        params = []
+        params: list[Sequence[float]] = []
         for untry, gate in zip(untrys[best_start], gates):
             if isinstance(gate, ConstantGate):
                 params.extend([])
@@ -212,21 +217,23 @@ class QFactor_sample_jax(Instantiater):
     def generate_random_states(
         amount_of_states: int,
         size_of_state: int,
-    ) -> list[npt.NDArray]:
+    ) -> list[npt.NDArray[np.complex128]]:
         """
         Generate a list of random state vectors (kets) using random unitary
         matrices.
 
-        This function generates a specified number of random quantum state vectors
-        (kets) by creating random unitary matrices and extracting their first columns.
+        This function generates a specified number of random quantum state
+        vectors (kets) by creating random unitary matrices and extracting
+        their first columns.
 
         Args:
             amount_of_states (int): The number of random states to generate.
             size_of_state (int): The dimension of each state vector (ket).
 
         Returns:
-            list of ndarrays: A list containing random quantum state vectors (kets).
-                            Each ket is represented as a numpy ndarray of shape (size_of_state, 1).
+            list of ndarrays: A list containing random quantum state vectors.
+                            Each ket is represented as a numpy ndarray of
+                            shape (size_of_state, 1).
         """
         states_kets = []
         states_to_add = amount_of_states
@@ -286,7 +293,11 @@ def _loop_vmaped_state_sample_sweep(
     # the same type, and also the check should be a function that accepts it
     # and return a boolean
 
-    def should_continue(loop_var: tuple):
+    def should_continue(
+        loop_var: tuple[
+            Array, Array[float], Array[float], Array[int],
+        ],
+    ) -> Array[bool]:
         _, training_costs, validation_costs, iteration_counts = loop_var
 
         any_reached_required_tol = jnp.any(
@@ -320,7 +331,13 @@ def _loop_vmaped_state_sample_sweep(
             ),
         )
 
-    def _while_body_to_be_vmaped(loop_var: tuple):
+    def _while_body_to_be_vmaped(
+        loop_var: tuple[
+            Array, Array[float], Array[float], Array[int],
+        ],
+    ) -> tuple[
+            Array, Array[float], Array[float], Array[int],
+    ]:
 
         untrys, training_cost, validation_cost, iteration_count = loop_var
 
@@ -334,10 +351,11 @@ def _loop_vmaped_state_sample_sweep(
                 ),
             )
 
-        untrys_as_matrixs, training_cost, validation_cost = state_sample_single_sweep(
-            locations, gates, untrys_as_matrixs,
-            beta, A_train, A_val, B0_train, B0_val,
-        )
+        untrys_as_matrixs, training_cost, validation_cost =\
+            state_sample_single_sweep(
+                locations, gates, untrys_as_matrixs,
+                beta, A_train, A_val, B0_train, B0_val,
+            )
 
         iteration_count += 1
 
@@ -375,7 +393,7 @@ def state_sample_single_sweep(
     untrys: list[UnitaryMatrixJax], beta: float,
     A_train: RHSTensor, A_val: RHSTensor,
     B0_train: LHSTensor, B0_val: LHSTensor,
-) -> list[UnitaryMatrixJax] | float | float:
+) -> tuple[list[UnitaryMatrixJax], float, float]:
 
     amount_of_gates = len(gates)
     B = [B0_train]
