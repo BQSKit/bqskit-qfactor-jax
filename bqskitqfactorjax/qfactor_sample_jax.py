@@ -19,9 +19,6 @@ from bqskit.qis import UnitaryMatrix
 from bqskit.qis.state import StateSystem
 from bqskit.qis.state import StateVector
 from jax import Array
-from jax.numpy import logical_and as jand
-from jax.numpy import logical_not as jnot
-from jax.numpy import logical_or as jor
 from scipy.stats import unitary_group
 
 from bqskitqfactorjax.qfactor_jax import _apply_padding_and_flatten
@@ -272,7 +269,6 @@ class QFactor_sample_jax(Instantiater):
             % ', '.join(str(g) for g in invalid_gates)
         )
 
-
     @staticmethod
     def generate_random_states(
         amount_of_states: int,
@@ -361,31 +357,34 @@ def _loop_vmaped_state_sample_sweep(
         _, training_costs, validation_costs, iteration_counts = loop_var
 
         any_reached_required_tol = jnp.any(
-                                    jax.vmap(
-                                        lambda cost: cost <= dist_tol
-                                        )(training_costs)
-                                    )
-        
+            jax.vmap(
+                lambda cost: cost <= dist_tol,
+            )(training_costs),
+        )
+
         reached_max_iteration = iteration_counts[0] > max_iters
         above_min_iteration = iteration_counts[0] > min_iters
 
         any_reached_over_training = jnp.any(
-                                        jax.vmap(
-                                            lambda train_cost, val_cost:
-                                            val_cost > overtrian_ratio * train_cost,)
-                                            (training_costs, validation_costs)
-                                        ),
+            jax.vmap(
+                lambda train_cost, val_cost:
+                val_cost > overtrian_ratio * train_cost,
+            )
+            (training_costs, validation_costs),
+        ),
 
-        return jnot(
-                jor(
-                    any_reached_required_tol,
-                    jor(
-                        reached_max_iteration,
-                        # jand(above_min_iteration, any_reached_over_training),
-                        any_reached_over_training
-                        ),
+        return jnp.logical_not(
+            jnp.logical_or(
+                any_reached_required_tol,
+                jnp.logical_or(
+                    reached_max_iteration,
+                    jnp.logical_and(
+                        above_min_iteration,
+                        any_reached_over_training,
                     ),
-                )
+                ),
+            ),
+        )
 
     def _while_body_to_be_vmaped(
         loop_var: tuple[
