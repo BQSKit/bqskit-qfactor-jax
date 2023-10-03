@@ -366,7 +366,8 @@ def _loop_vmaped_state_sample_sweep(
         above_min_iteration = iteration_counts[0] > min_iters
 
         any_reached_over_training = jnp.any(
-            training_costs < overtrian_ratio*  validation_costs)
+            training_costs < overtrian_ratio * validation_costs,
+        )
 
         return jnp.logical_not(
             jnp.logical_or(
@@ -492,12 +493,12 @@ def state_sample_single_sweep(
 
 
 def calc_cost(A: RHSTensor, B0: LHSTensor, a: RHSTensor) -> float:
-    cost =  2 * (
+    cost = 2 * (
         1 - jnp.real(
             SingleLegSideTensor.calc_env(B0, a, [])[0],
-            ) / A.single_leg_radix
-        )
-    
+        ) / A.single_leg_radix
+    )
+
     return jnp.squeeze(cost)
 
 
