@@ -40,6 +40,4 @@ for more information.
 ## Copyright
 
 Quantum Fast Circuit Optimizer (QFactor) JAX implementation Copyright (c) 2023,
-The Regents of the University of California, through Lawrence
-Berkeley National Laboratory (subject to receipt of any required
-approvals from the U.S. Dept. of Energy) and Alon Kukliansky.  All rights reserved.
+U.S. Federal Government and the Government of Israel. All rights reserved.
