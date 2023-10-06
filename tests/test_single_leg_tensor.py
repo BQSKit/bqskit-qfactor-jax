@@ -7,10 +7,10 @@ import jax.numpy as jnp
 import pytest
 from bqskit.ir.gates import CXGate
 from bqskit.ir.gates import HGate
-from bqskitgpu.singlelegedtensor import LHSTensor
-from bqskitgpu.singlelegedtensor import RHSTensor
-from bqskitgpu.singlelegedtensor import SingleLegSideTensor
-from bqskitgpu.unitarymatrixjax import UnitaryMatrixJax
+from bqskitqfactorjax.singlelegedtensor import LHSTensor
+from bqskitqfactorjax.singlelegedtensor import RHSTensor
+from bqskitqfactorjax.singlelegedtensor import SingleLegSideTensor
+from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
 from scipy.stats import unitary_group
 
 
