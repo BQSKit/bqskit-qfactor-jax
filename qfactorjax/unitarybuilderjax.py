@@ -17,7 +17,7 @@ from bqskit.utils.typing import is_integer
 from bqskit.utils.typing import is_valid_radixes
 from jax import Array
 
-from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
+from qfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +294,7 @@ class UnitaryBuilderJax():
             self.tensor, utry_builder_tensor_indexes, output_tensor_index,
         )
 
+    # TODO: Remove? We don't need to copy code over that's not used in this package
     def eval_apply_right(
         self,
         M: Array,
@@ -324,6 +325,7 @@ class UnitaryBuilderJax():
         out_M = tensor_copy.reshape((self.dim, self.dim))
         return out_M
 
+    # TODO: Remove? We don't need to copy code over that's not used in this package
     def eval_apply_left(
         self,
         M: Array,

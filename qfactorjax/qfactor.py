@@ -19,10 +19,12 @@ from bqskit.ir.opt.instantiater import Instantiater
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from jax import Array
 from scipy.stats import unitary_group
+from bqskit.utils.typing import is_real_number
+from bqskit.utils.typing import is_integer
 
-from bqskitqfactorjax.unitary_acc import VariableUnitaryGateAcc
-from bqskitqfactorjax.unitarybuilderjax import UnitaryBuilderJax
-from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
+from qfactorjax.unitary_acc import VariableUnitaryGateAcc
+from qfactorjax.unitarybuilderjax import UnitaryBuilderJax
+from qfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
 if TYPE_CHECKING:
     from bqskit.ir.circuit import Circuit
@@ -35,7 +37,7 @@ _logger = logging.getLogger(__name__)
 jax.config.update('jax_enable_x64', True)
 
 
-class QFactor_jax(Instantiater):
+class QFactorJax(Instantiater):
     """The QFactor batch circuit instantiater."""
 
     def __init__(
@@ -50,23 +52,39 @@ class QFactor_jax(Instantiater):
         diff_tol_step_r: float = 0.1,
         diff_tol_step: int = 200,
         beta: float = 0.0,
-
     ):
+        """
+        TODO: Add docstring.
+        """
 
-        if not isinstance(diff_tol_a, float) or diff_tol_a > 0.5:
-            raise TypeError('Invalid absolute difference threshold.')
+        if not is_real_number(diff_tol_a):
+            raise TypeError(
+                f'Expected float for diff_tol_a, got {type(diff_tol_a)}.'
+            )
+        
+        if diff_tol_a > 0.5:
+            raise ValueError(
+                'Invalid absolute difference threshold, must be less'
+                f' than 0.5, got {diff_tol_a}.'
+            )
 
-        if not isinstance(diff_tol_r, float) or diff_tol_r > 0.5:
+        # TODO: Fix rest of input validation
+        if not is_real_number(diff_tol_r) or diff_tol_r > 0.5:
             raise TypeError('Invalid relative difference threshold.')
 
-        if not isinstance(dist_tol, float) or dist_tol > 0.5:
+        if not is_real_number(dist_tol) or dist_tol > 0.5:
             raise TypeError('Invalid distance threshold.')
 
-        if not isinstance(max_iters, int) or max_iters < 0:
+        if not is_integer(max_iters) or max_iters < 0:
             raise TypeError('Invalid maximum number of iterations.')
 
-        if not isinstance(min_iters, int) or min_iters < 0:
+        if not is_integer(min_iters) or min_iters < 0:
             raise TypeError('Invalid minimum number of iterations.')
+        
+        # min_iters, max_iters > 0? min_iters < max_iters?
+        # reset_iter > ?
+        # plateau_windows_size > ?; plateau_windows_size < reset_iter?
+        # diff_tol_step_r, diff_tol_step
 
         self.diff_tol_a = diff_tol_a
         self.diff_tol_r = diff_tol_r
@@ -85,7 +103,7 @@ class QFactor_jax(Instantiater):
         target: UnitaryLike,
         x0: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
-
+        """Instantiate `circuit' and return optimal params (single-start)."""
         return self.multi_start_instantiate(circuit, target, 1)
 
     def multi_start_instantiate_inplace(
@@ -103,8 +121,7 @@ class QFactor_jax(Instantiater):
             This method is a version of :func:`multi_start_instantiate`
             that modifies `circuit` in place rather than returning a copy.
         """
-        target_mat: UnitaryMatrix = self.check_target(target)
-        params = self.multi_start_instantiate(circuit, target_mat, num_starts)
+        params = self.multi_start_instantiate(circuit, target, num_starts)
         circuit.set_params(params)
 
     async def multi_start_instantiate_async(
@@ -113,7 +130,7 @@ class QFactor_jax(Instantiater):
         target: UnitaryLike,
         num_starts: int,
     ) -> npt.NDArray[np.float64]:
-
+        """Instantiate `circuit' and return optimal params asynchronously."""
         return self.multi_start_instantiate(circuit, target, num_starts)
 
     def multi_start_instantiate(
@@ -122,6 +139,7 @@ class QFactor_jax(Instantiater):
         target: UnitaryLike | StateLike | StateSystemLike,
         num_starts: int,
     ) -> npt.NDArray[np.float64]:
+        """Instantiate `circuit' and return optimal params."""
         if len(circuit) == 0:
             return np.array([])
 
@@ -132,19 +150,30 @@ class QFactor_jax(Instantiater):
             g = op.gate
             if isinstance(g, VariableUnitaryGate):
                 g.__class__ = VariableUnitaryGateAcc
+        
+        # # Is the below code slower? It does get rid of the ugly casting
+        # # I hate to change something that is working though
+        # # Feel free to delete
+        # new_circuit = Circuit(circuit.num_qudits, circuit.radixes)
+        # for op in circuit:
+        #     if isinstance(op.gate, VariableUnitaryGate):
+        #         new_gate = VariableUnitaryGateAcc(
+        #             op.gate.num_qudits,
+        #             op.gate.radixes
+        #         )
+        #         new_circuit.append_gate(new_gate, op.location)
+        # circuit = new_circuit
 
-        """Instantiate `circuit`, see Instantiater for more info."""
         target = UnitaryMatrixJax(self.check_target(target))
-        locations: tuple[CircuitLocation, ...] = tuple(
-            [op.location for op in circuit],
-        )
-        gates: tuple[Gate, ...] = tuple([op.gate for op in circuit])
-        biggest_gate_size = max(gate.num_qudits for gate in gates)
+        locations = tuple([op.location for op in circuit])
+        gates = tuple([op.gate for op in circuit])
+        biggest_gate_size = max(g.num_qudits for g in circuit.gate_set)
 
         untrys = []
 
         for gate in gates:
-            size_of_untry = 2**gate.num_qudits
+            size_of_untry = 2**gate.num_qudits  # TODO: qudits?
+            # size_of_untry = gate.dim  # Would this have other issues?
 
             if isinstance(gate, VariableUnitaryGateAcc):
                 pre_padding_untrys = [
@@ -239,7 +268,8 @@ class QFactor_jax(Instantiater):
             isinstance(
                 gate, (
                     VariableUnitaryGate,
-                    VariableUnitaryGateAcc, U3Gate, ConstantGate,
+                    VariableUnitaryGateAcc,
+                    ConstantGate,
                 ),
             )
             for gate in circuit.gate_set
@@ -265,7 +295,6 @@ class QFactor_jax(Instantiater):
                 gate, (
                     VariableUnitaryGate,
                     VariableUnitaryGateAcc,
-                    U3Gate,
                     ConstantGate,
                 ),
             )
@@ -391,7 +420,7 @@ def _single_sweep_sim(
 def _apply_padding_and_flatten(
         untry: Array, gate: Gate, max_gate_size: int,
 ) -> Array:
-    zero_pad_size = (2**max_gate_size)**2 - (2**gate.num_qudits)**2
+    zero_pad_size = (2**max_gate_size)**2 - (2**gate.num_qudits)**2  # TODO: Qudits?
     if zero_pad_size > 0:
         zero_pad = jnp.zeros(zero_pad_size)
         return jnp.concatenate((untry, zero_pad), axis=None)
@@ -402,7 +431,7 @@ def _apply_padding_and_flatten(
 def _remove_padding_and_create_matrix(
         untry: Array, gate: Gate,
 ) -> Array:
-    len_of_matrix = 2**gate.num_qudits
+    len_of_matrix = 2**gate.num_qudits  # TODO: Qudits?  # gate.dim?
     size_to_keep = len_of_matrix**2
     return untry[:size_to_keep].reshape((len_of_matrix, len_of_matrix))
 
@@ -428,11 +457,21 @@ def Loop_vars(
 
 
 def _sweep2(
-    target: UnitaryMatrixJax, locations: tuple[CircuitLocation, ...],
-    gates: tuple[Gate, ...], untrys: Array, n: int, dist_tol: float,
-    diff_tol_a: float, diff_tol_r: float, plateau_windows_size: int,
-    max_iters: int, min_iters: int, amount_of_starts: int,
-    diff_tol_step_r: float, diff_tol_step: int, beta: float,
+    target: UnitaryMatrixJax,
+    locations: tuple[CircuitLocation, ...],
+    gates: tuple[Gate, ...],
+    untrys: Array,
+    n: int,
+    dist_tol: float,
+    diff_tol_a: float,
+    diff_tol_r: float,
+    plateau_windows_size: int,
+    max_iters: int,
+    min_iters: int,
+    amount_of_starts: int,
+    diff_tol_step_r: float,
+    diff_tol_step: int,
+    beta: float,
 ) -> dict[str, Array]:
     c1s = jnp.array([1.0] * amount_of_starts)
     plateau_windows = jnp.array(

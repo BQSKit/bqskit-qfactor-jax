@@ -15,7 +15,7 @@ from bqskit.passes import ToU3Pass
 from bqskit.passes import ToVariablePass
 from bqskit.passes import UnfoldPass
 
-from bqskitqfactorjax.qfactor_jax import QFactor_jax
+from qfactorjax.qfactor import QFactorJax
 
 
 def run_gate_del_flow_example(
@@ -47,7 +47,7 @@ def run_gate_del_flow_example(
     in_circuit = Circuit.from_file(file_path)
 
     # Prepare the instantiator
-    batched_instantiation = QFactor_jax(
+    batched_instantiation = QFactorJax(
         diff_tol_r=diff_tol_r,
         diff_tol_a=diff_tol_a,
         min_iters=min_iters,
@@ -87,8 +87,8 @@ def run_gate_del_flow_example(
     # Create the compilation task
 
     with Compiler(
-            num_workers=amount_of_workers,
-            runtime_log_level=logging.INFO,
+        num_workers=amount_of_workers,
+        runtime_log_level=logging.INFO,
     ) as compiler:
 
         print('Starting gate deletion flow using QFactor JAX')
