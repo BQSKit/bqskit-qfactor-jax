@@ -49,7 +49,7 @@ class QFactor_sample_jax(Instantiater):
         min_iters: int = 1000,
         beta: float = 0.0,
         amount_of_validation_states: int = 2,
-        num_params_coeff: float = 1,
+        num_params_coeff: float = 1.0,
         overtrain_ratio: float = 1 / 32,
     ):
 
@@ -160,7 +160,7 @@ class QFactor_sample_jax(Instantiater):
         for g in gates:
             amount_of_trainng_states += self.num_params_coeff * g.num_params
 
-        amount_of_trainng_states = np.round(amount_of_trainng_states)
+        amount_of_trainng_states = int(np.round(amount_of_trainng_states))
 
         training_states_kets = self.generate_random_states(
             amount_of_trainng_states, int(np.prod(radixes)),
