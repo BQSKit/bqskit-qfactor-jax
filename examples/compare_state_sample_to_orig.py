@@ -13,7 +13,7 @@ from bqskit.passes import ToVariablePass
 dist_tol_requested = float(sys.argv[2])
 num_mutlistarts = 32
 
-num_params_coeff = int(sys.argv[3])
+num_params_coeff = float(sys.argv[3])
 
 
 instantiate_options = {
