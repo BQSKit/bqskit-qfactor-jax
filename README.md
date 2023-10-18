@@ -1,12 +1,12 @@
 # QFactor implementation on GPUs using JAX
-`bqskit-qfactor-jax` is a Python package that implements circuit instantiation and simulation on GPU to accelerate [BQSKit](https://github.com/bqsKit/bqskit), it uses [JAX](https://jax.readthedocs.io/en/latest/index.html) as an abstraction layer of the GPUs, seamlessly utilizing JIT compilation and GPU parallelism.
+`bqskit-qfactor-jax` is a Python package that implements circuit instantiation with [QFactor](https://arxiv.org/abs/2306.08152) on GPUs to accelerate [BQSKit](https://github.com/bqskit/bqskit). It uses [JAX](https://jax.readthedocs.io/en/latest/index.html) as an abstraction layer of the GPUs, seamlessly utilizing JIT compilation and GPU parallelism.
 
 ## Installation
 `bqskit-qfactor-jax` is available for Python 3.8+ on Linux.
 
 First, install JAX with GPU support, you may refer to JAX's [installation instructions](https://github.com/google/jax#installation).
 
-Next, install the package using pip
+Next, install this package with pip:
 
 ```sh
 pip install bqskit-qfactor-jax
