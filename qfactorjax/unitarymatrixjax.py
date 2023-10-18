@@ -94,7 +94,6 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
 
         return len(self.radixes)
 
-    # TODO: Remove? We don't need to copy code over that's not used in this package
     @staticmethod
     def identity(dim: int, radixes: Sequence[int] = []) -> UnitaryMatrixJax:
         """
@@ -107,7 +106,7 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
                 for each qudit, defaults to qubits.
 
         Returns:
-            UnitaryMatrix: An identity matrix.
+            UnitaryMatrixJax: An identity matrix.
 
         Raises:
             ValueError: If `dim` is non-positive.
@@ -156,7 +155,6 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
         """The JaxNumPy array holding the unitary."""
         return self._utry
 
-    # TODO: Remove? We don't need to copy code over that's not used in this package
     @staticmethod
     def random(
         num_qudits: int,
@@ -164,7 +162,6 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
     ) -> UnitaryMatrixJax:
         return UnitaryMatrixJax(UnitaryMatrix.random(num_qudits, radixes))
 
-    # TODO: Remove? We don't need to copy code over that's not used in this package
     @staticmethod
     def from_file(filename: str) -> UnitaryMatrixJax:
         """Load a unitary from a file."""

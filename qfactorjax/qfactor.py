@@ -12,22 +12,20 @@ import numpy as np
 import numpy.typing as npt
 from bqskit.ir import CircuitLocation
 from bqskit.ir import Gate
+from bqskit.ir.circuit import Circuit
 from bqskit.ir.gates.constantgate import ConstantGate
-from bqskit.ir.gates.parameterized.u3 import U3Gate
 from bqskit.ir.gates.parameterized.unitary import VariableUnitaryGate
 from bqskit.ir.opt.instantiater import Instantiater
-from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
+from bqskit.utils.typing import is_integer
+from bqskit.utils.typing import is_real_number
 from jax import Array
 from scipy.stats import unitary_group
-from bqskit.utils.typing import is_real_number
-from bqskit.utils.typing import is_integer
 
 from qfactorjax.unitary_acc import VariableUnitaryGateAcc
 from qfactorjax.unitarybuilderjax import UnitaryBuilderJax
 from qfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
 if TYPE_CHECKING:
-    from bqskit.ir.circuit import Circuit
     from bqskit.qis.state.state import StateLike
     from bqskit.qis.state.system import StateSystemLike
     from bqskit.qis.unitary.unitarymatrix import UnitaryLike
@@ -42,9 +40,9 @@ class QFactorJax(Instantiater):
 
     def __init__(
         self,
+        dist_tol: float = 1e-10,
         diff_tol_a: float = 1e-12,
         diff_tol_r: float = 1e-6,
-        dist_tol: float = 1e-10,
         max_iters: int = 100000,
         min_iters: int = 1000,
         reset_iter: int = 40,
@@ -54,21 +52,41 @@ class QFactorJax(Instantiater):
         beta: float = 0.0,
     ):
         """
-        TODO: Add docstring.
+        Constructs and configures a QFactor Instantiator using JAX.
+
+        Parameters:
+            dist_tol (float): Allowed distance between the target unitary and
+                the parameterized circuit.
+            diff_tol_a (float): Minimum absolute improvement used in the
+                short plateau detection mechanism.
+            diff_tol_r (float): Minimum relative improvement used in the
+                short plateau detection mechanism.
+            max_iters (int): Maximum number of iterations.
+            min_iters (int): Minimum number of iterations before stopping.
+            reset_iter (int): Number of iterations before resetting the unitary
+                 tensor to avoid floating point issues.
+            plateau_window_size (int): Window size used to detect plateaus -
+                every multistart needs to have at least one iteration flagged
+                as a plateau, to stop the instantiation.
+            diff_tol_step_r (float): Minimum relative improvement used in the
+                long plateau detection mechanism.
+            diff_tol_step (int): Number of iterations where the long plateau
+                detection mechanism is used.
+            beta (float): Regularization parameter. Valid values [0.0 - 1.0].
         """
 
         if not is_real_number(diff_tol_a):
             raise TypeError(
-                f'Expected float for diff_tol_a, got {type(diff_tol_a)}.'
+                f'Expected float for diff_tol_a, got {type(diff_tol_a)}.',
             )
-        
+
         if diff_tol_a > 0.5:
             raise ValueError(
                 'Invalid absolute difference threshold, must be less'
-                f' than 0.5, got {diff_tol_a}.'
+                f' than 0.5, got {diff_tol_a}.',
             )
 
-        # TODO: Fix rest of input validation
+        # TODO: Fix rest of input validation prints to be more informative
         if not is_real_number(diff_tol_r) or diff_tol_r > 0.5:
             raise TypeError('Invalid relative difference threshold.')
 
@@ -80,11 +98,30 @@ class QFactorJax(Instantiater):
 
         if not is_integer(min_iters) or min_iters < 0:
             raise TypeError('Invalid minimum number of iterations.')
-        
-        # min_iters, max_iters > 0? min_iters < max_iters?
-        # reset_iter > ?
-        # plateau_windows_size > ?; plateau_windows_size < reset_iter?
-        # diff_tol_step_r, diff_tol_step
+
+        if not min_iters < max_iters:
+            raise TypeError(
+                'Minimum number of iterations must be smaller then'
+                'maximum number of iterations.',
+            )
+
+        if not is_integer(reset_iter):
+            raise TypeError('Invalid minimum number of iterations.')
+
+        if not is_integer(plateau_windows_size) or plateau_windows_size < 0:
+            raise TypeError('Invalid plateau windows size of iterations.')
+
+        if not is_real_number(diff_tol_step_r) or diff_tol_step_r < 0:
+            raise TypeError(
+                'Invalid relative difference threshold for long'
+                ' plateau detection.',
+            )
+
+        if not is_integer(diff_tol_step) or diff_tol_step < 0:
+            raise TypeError('Invalid step size of long plateau detection.')
+
+        if not is_real_number(beta) or beta < 0:
+            raise TypeError('Invalid beta parameter')
 
         self.diff_tol_a = diff_tol_a
         self.diff_tol_r = diff_tol_r
@@ -143,37 +180,26 @@ class QFactorJax(Instantiater):
         if len(circuit) == 0:
             return np.array([])
 
-        circuit = circuit.copy()
-
-        # A very ugly casting
+        gates_list = []
         for op in circuit:
-            g = op.gate
-            if isinstance(g, VariableUnitaryGate):
-                g.__class__ = VariableUnitaryGateAcc
-        
-        # # Is the below code slower? It does get rid of the ugly casting
-        # # I hate to change something that is working though
-        # # Feel free to delete
-        # new_circuit = Circuit(circuit.num_qudits, circuit.radixes)
-        # for op in circuit:
-        #     if isinstance(op.gate, VariableUnitaryGate):
-        #         new_gate = VariableUnitaryGateAcc(
-        #             op.gate.num_qudits,
-        #             op.gate.radixes
-        #         )
-        #         new_circuit.append_gate(new_gate, op.location)
-        # circuit = new_circuit
+            if isinstance(op.gate, VariableUnitaryGate):
+                new_gate = VariableUnitaryGateAcc(
+                    op.gate.num_qudits,
+                    op.gate.radixes,
+                )
+                gates_list.append(new_gate)
+            else:
+                gates_list.append(op.gate)
 
         target = UnitaryMatrixJax(self.check_target(target))
         locations = tuple([op.location for op in circuit])
-        gates = tuple([op.gate for op in circuit])
-        biggest_gate_size = max(g.num_qudits for g in circuit.gate_set)
+        gates = tuple(gates_list)
+        biggest_gate_dim = max(g.dim for g in circuit.gate_set)
 
         untrys = []
 
         for gate in gates:
-            size_of_untry = 2**gate.num_qudits  # TODO: qudits?
-            # size_of_untry = gate.dim  # Would this have other issues?
+            size_of_untry = gate.dim
 
             if isinstance(gate, VariableUnitaryGateAcc):
                 pre_padding_untrys = [
@@ -188,7 +214,7 @@ class QFactorJax(Instantiater):
 
             untrys.append([
                 _apply_padding_and_flatten(
-                    pre_padd, gate, biggest_gate_size,
+                    pre_padd, gate, biggest_gate_dim,
                 ) for pre_padd in pre_padding_untrys
             ])
 
@@ -418,9 +444,9 @@ def _single_sweep_sim(
 
 
 def _apply_padding_and_flatten(
-        untry: Array, gate: Gate, max_gate_size: int,
+        untry: Array, gate: Gate, max_gate_dim: int,
 ) -> Array:
-    zero_pad_size = (2**max_gate_size)**2 - (2**gate.num_qudits)**2  # TODO: Qudits?
+    zero_pad_size = (max_gate_dim)**2 - (gate.dim)**2
     if zero_pad_size > 0:
         zero_pad = jnp.zeros(zero_pad_size)
         return jnp.concatenate((untry, zero_pad), axis=None)
@@ -431,9 +457,8 @@ def _apply_padding_and_flatten(
 def _remove_padding_and_create_matrix(
         untry: Array, gate: Gate,
 ) -> Array:
-    len_of_matrix = 2**gate.num_qudits  # TODO: Qudits?  # gate.dim?
-    size_to_keep = len_of_matrix**2
-    return untry[:size_to_keep].reshape((len_of_matrix, len_of_matrix))
+    size_to_keep = gate.dim**2
+    return untry[:size_to_keep].reshape((gate.dim, gate.dim))
 
 
 def Loop_vars(
@@ -603,11 +628,11 @@ def _sweep2(
             reached_step_body, not_reached_step_body, operand_for_if_plateau,
         )
 
-        biggest_gate_size = max(gate.num_qudits for gate in gates)
+        biggest_gate_dim = max(gate.dim for gate in gates)
         final_untrys_padded = jnp.array([
             _apply_padding_and_flatten(
                 untry.numpy.flatten(
-                ), gate, biggest_gate_size,
+                ), gate, biggest_gate_dim,
             ) for untry, gate in zip(untrys, gates)
         ])
 

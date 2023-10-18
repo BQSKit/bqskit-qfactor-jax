@@ -15,7 +15,7 @@ from qfactorjax.qfactor import QFactorJax
 
 
 def run_toffoli_instantiation(dist_tol_requested: float = 1e-10) -> float:
-    qfactr_gpu_instantiator = QFactorJax(
+    qfactor_gpu_instantiator = QFactorJax(
 
         dist_tol=dist_tol_requested,       # Stopping criteria for distance
 
@@ -62,7 +62,7 @@ def run_toffoli_instantiation(dist_tol_requested: float = 1e-10) -> float:
     circuit.instantiate(
         toffoli,
         multistarts=16,
-        method=qfactr_gpu_instantiator,
+        method=qfactor_gpu_instantiator,
     )
 
     # Calculate and print final distance
