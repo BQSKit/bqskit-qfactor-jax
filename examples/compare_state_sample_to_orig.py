@@ -6,7 +6,7 @@ from bqskit.ir.circuit import Circuit
 from bqskit.compiler import Compiler, CompilationTask
 # from inst_pass import InstPass
 
-from bqskitqfactorjax.qfactor_sample_jax import QFactor_sample_jax
+from bqskitqfactorjax.qfactor_sample_jax import QFactorSampleJax
 from bqskitqfactorjax.qfactor_jax import QFactor_jax
 from bqskit.passes import ToVariablePass
 
@@ -44,7 +44,7 @@ qfactr_gpu_instantiator = QFactor_jax(
 )
 
 
-qfactr_sample_gpu_instantiator = QFactor_sample_jax(
+qfactr_sample_gpu_instantiator = QFactorSampleJax(
 
     dist_tol=dist_tol_requested,       # Stopping criteria for distance
 
@@ -68,7 +68,7 @@ file_name = sys.argv[1]
 
 print(f'Will use {file_name} {dist_tol_requested = } {num_mutlistarts = } {num_params_coeff = }')
 
-orig_10q_block_cir = Circuit.from_file(f'examples/{file_name}')
+orig_10q_block_cir = Circuit.from_file(f'{file_name}')
 
 with Compiler(num_workers=1) as compiler:
     task = CompilationTask(orig_10q_block_cir, [ToVariablePass()])

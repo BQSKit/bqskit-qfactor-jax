@@ -40,7 +40,7 @@ _logger = logging.getLogger(__name__)
 jax.config.update('jax_enable_x64', True)
 
 
-class QFactor_sample_jax(Instantiater):
+class QFactorSampleJax(Instantiater):
 
     def __init__(
         self,
