@@ -11,7 +11,7 @@ from bqskitqfactorjax.qfactor_jax import QFactor_jax
 from bqskit.passes import ToVariablePass
 
 dist_tol_requested = float(sys.argv[2])
-num_mutlistarts = 32
+num_mutlistarts = 16
 
 num_params_coeff = float(sys.argv[3])
 
@@ -21,7 +21,7 @@ instantiate_options = {
                     }
 
 
-qfactr_gpu_instantiator = QFactor_jax(
+qfactor_gpu_instantiator = QFactor_jax(
 
     dist_tol=dist_tol_requested,       # Stopping criteria for distance
 
@@ -44,12 +44,12 @@ qfactr_gpu_instantiator = QFactor_jax(
 )
 
 
-qfactr_sample_gpu_instantiator = QFactorSampleJax(
+qfactor_sample_gpu_instantiator = QFactorSampleJax(
 
     dist_tol=dist_tol_requested,       # Stopping criteria for distance
 
-    max_iters=100000,      # Maximum number of iterations
-    min_iters=10,          # Minimum number of iterations
+    max_iters=2,      # Maximum number of iterations
+    min_iters=1,          # Minimum number of iterations
 
     # Regularization parameter - [0.0 - 1.0]
     # Increase to overcome local minima at the price of longer compute
@@ -82,18 +82,18 @@ time_to_simulate_circ = time.perf_counter() - tic
 print(f"Time to simulate was {time_to_simulate_circ}")
 
 tic = time.perf_counter()
-orig_10q_block_cir_vu.instantiate(target, multistarts=num_mutlistarts, method=qfactr_sample_gpu_instantiator)
+orig_10q_block_cir_vu.instantiate(target, multistarts=num_mutlistarts, method=qfactor_sample_gpu_instantiator)
 sample_inst_time = time.perf_counter() - tic
 inst_sample_dist_from_target = orig_10q_block_cir_vu.get_unitary().get_distance_from(target, 1)
 
 print(f'sample method {sample_inst_time = } {inst_sample_dist_from_target = } {num_params_coeff = }')
 
-tic = time.perf_counter()
-orig_10q_block_cir_vu.instantiate(target, multistarts=num_mutlistarts, method=qfactr_gpu_instantiator)
-full_inst_time = time.perf_counter() - tic
-inst_dist_from_target = orig_10q_block_cir_vu.get_unitary().get_distance_from(target, 1)
+# tic = time.perf_counter()
+# orig_10q_block_cir_vu.instantiate(target, multistarts=num_mutlistarts, method=qfactr_gpu_instantiator)
+# full_inst_time = time.perf_counter() - tic
+# inst_dist_from_target = orig_10q_block_cir_vu.get_unitary().get_distance_from(target, 1)
 
-print(f'full method {full_inst_time = } {inst_dist_from_target = }')
+# print(f'full method {full_inst_time = } {inst_dist_from_target = }')
 
 # with Compiler(num_workers=num_mutlistarts+1) as compiler:
 #     task = CompilationTask(orig_10q_block_cir, [InstPass(instantiate_options, target)])

@@ -309,11 +309,12 @@ def _loop_vmaped_state_sample_sweep(
     gates: tuple[Gate, ...], untrys: Array,
     dist_tol: float, max_iters: int, beta: float,
     amount_of_starts: int, min_iters: int,
-    overtrian_ratio: float,
+    overtrain_ratio: float,
     training_states_kets: Array,
     validation_states_kets: Array,
 ) -> tuple[Array, Array[float], Array[float], Array[int]]:
 
+    # Calculate the bras for the validation and training states
     validation_states_bras = jax.vmap(
         lambda ket: ket.T.conj(),
     )(jnp.array(validation_states_kets))
@@ -345,7 +346,7 @@ def _loop_vmaped_state_sample_sweep(
         num_qudits=num_qudits, radixes=radixes,
     )
 
-    # In JAX the body of a while must be a function that accepet and returns
+    # In JAX the body of a while must be a function that accepts and returns
     # the same type, and also the check should be a function that accepts it
     # and return a boolean
 
@@ -365,8 +366,8 @@ def _loop_vmaped_state_sample_sweep(
         reached_max_iteration = iteration_counts[0] > max_iters
         above_min_iteration = iteration_counts[0] > min_iters
 
-        any_reached_over_training = jnp.any(
-            training_costs < overtrian_ratio * validation_costs,
+        all_reached_over_training = jnp.all(
+            overtrain_ratio * validation_costs >  training_costs,
         )
 
         return jnp.logical_not(
@@ -376,7 +377,7 @@ def _loop_vmaped_state_sample_sweep(
                     reached_max_iteration,
                     jnp.logical_and(
                         above_min_iteration,
-                        any_reached_over_training,
+                        all_reached_over_training,
                     ),
                 ),
             ),
@@ -429,7 +430,7 @@ def _loop_vmaped_state_sample_sweep(
         untrys,
         jnp.ones(amount_of_starts),  # train_cost
         jnp.ones(amount_of_starts),  # val_cost
-        jnp.zeros(amount_of_starts),  # iter_count
+        jnp.zeros(amount_of_starts, dtype=int),  # iter_count
     )
 
     r = jax.lax.while_loop(should_continue, while_body_vmaped, initial_loop_var)
