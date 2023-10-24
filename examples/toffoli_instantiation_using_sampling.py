@@ -27,8 +27,8 @@ def run_toffoli_instantiation(dist_tol_requested: float = 1e-10) -> float:
         beta=0.0,
 
         amount_of_validation_states=2,
-        num_params_coeff=1,
-        overtrain_ratio=1 / 32,
+        num_params_coef=1,
+        overtrain_relative_threshold=0.1,
     )
 
     # We will optimize towards the Toffoli unitary.

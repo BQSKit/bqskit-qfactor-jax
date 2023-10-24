@@ -49,8 +49,11 @@ class QFactorSampleJax(Instantiater):
         min_iters: int = 1000,
         beta: float = 0.0,
         amount_of_validation_states: int = 2,
-        num_params_coeff: float = 1.0,
-        overtrain_ratio: float = 1 / 32,
+        num_params_coef: float = 1.0,
+        overtrain_relative_threshold: float = 0.1,
+        diff_tol_r: float=1e-4,     # Relative criteria for distance change
+        plateau_windows_size: int = 6,
+        exact_amount_of_states_to_train_on: int | None = None,
     ):
 
         if not isinstance(dist_tol, float) or dist_tol > 0.5:
@@ -68,8 +71,11 @@ class QFactorSampleJax(Instantiater):
 
         self.beta = beta
         self.amount_of_validation_states = amount_of_validation_states
-        self.num_params_coeff = num_params_coeff
-        self.overtrain_ratio = overtrain_ratio
+        self.num_params_coef = num_params_coef
+        self.overtrain_ratio = overtrain_relative_threshold
+        self.diff_tol_r = diff_tol_r
+        self.plateau_windows_size = plateau_windows_size
+        self.exact_amount_of_states_to_train_on = exact_amount_of_states_to_train_on
 
     def instantiate(
         self,
@@ -132,71 +138,129 @@ class QFactorSampleJax(Instantiater):
         radixes = target.radixes
         num_qudits = target.num_qudits
 
-        untrys = []
-
-        for gate in gates:
-            size_of_untry = 2**gate.num_qudits
-
-            if isinstance(gate, VariableUnitaryGateAcc):
-                pre_padding_untrys = [
-                    unitary_group.rvs(size_of_untry) for
-                    _ in range(num_starts)
-                ]
-            else:
-                pre_padding_untrys = [
-                    gate.get_unitary().numpy for
-                    _ in range(num_starts)
-                ]
-
-            untrys.append([
-                _apply_padding_and_flatten(
-                    pre_padd, gate, biggest_gate_size,
-                ) for pre_padd in pre_padding_untrys
-            ])
-
-        untrys = jnp.array(np.stack(untrys, axis=1))
-
-        amount_of_trainng_states = 0
-        for g in gates:
-            amount_of_trainng_states += self.num_params_coeff * g.num_params
-
-        amount_of_trainng_states = int(np.round(amount_of_trainng_states))
-
-        training_states_kets = self.generate_random_states(
-            amount_of_trainng_states, int(np.prod(radixes)),
-        )
-        validation_states_kets = self.generate_random_states(
-            self.amount_of_validation_states, int(np.prod(radixes)),
-        )
-
-        final_untrys, training_costs, validation_costs, iteration_counts = \
-            _jited_loop_vmaped_state_sample_sweep(
-                target, num_qudits, radixes, locations, gates, untrys,
-                self.dist_tol, self.max_iters, self.beta,
-                num_starts, self.min_iters, self.overtrain_ratio,
-                training_states_kets, validation_states_kets,
+        
+        # Initial number of states to use can b
+        if self.exact_amount_of_states_to_train_on is None:
+            amount_of_params_in_circuit = 0
+            for g in gates:
+                amount_of_params_in_circuit +=  g.num_params
+            initial_amount_of_training_states = int(
+                np.sqrt(amount_of_params_in_circuit) * self.num_params_coef
             )
-
-        it = iteration_counts[0]
-        untrys = final_untrys
-        best_start = jnp.argmin(training_costs)
-
-        if any(training_costs < self.dist_tol):
-            _logger.debug(
-                f'Terminated: {it} c1 = {training_costs} <= dist_tol.\n'
-                f'Best start is {best_start}',
-            )
-        elif all(validation_costs > self.overtrain_ratio * training_costs):
-            _logger.debug(
-                f'Terminated: {it} overtraining detected in all multistarts',
-            )
-        elif it >= self.max_iters:
-            _logger.debug('Terminated: iteration limit reached.')
         else:
-            _logger.error(
-                f'Terminated with no good reason after {it} iterstion '
-                f'with c1s {training_costs}.',
+            initial_amount_of_training_states =\
+                self.exact_amount_of_states_to_train_on
+
+        amount_of_training_states = initial_amount_of_training_states
+
+        validation_states_kets = self.generate_random_states(
+                self.amount_of_validation_states, int(np.prod(radixes)),
             )
+
+
+        generate_untrys_only_once = 'GEN_ONCE' in os.environ
+
+        if generate_untrys_only_once:
+            untrys = []
+
+            for gate in gates:
+                size_of_untry = 2**gate.num_qudits
+
+                if isinstance(gate, VariableUnitaryGateAcc):
+                    pre_padding_untrys = [
+                        unitary_group.rvs(size_of_untry) for
+                        _ in range(num_starts)
+                    ]
+                else:
+                    pre_padding_untrys = [
+                        gate.get_unitary().numpy for
+                        _ in range(num_starts)
+                    ]
+
+                untrys.append([
+                    _apply_padding_and_flatten(
+                        pre_padd, gate, biggest_gate_size,
+                    ) for pre_padd in pre_padding_untrys
+                ])
+
+            untrys = jnp.array(np.stack(untrys, axis=1))
+        
+        have_sufficient_states = False
+        should_double_the_training_size = True
+        while not have_sufficient_states:
+            
+            if not generate_untrys_only_once:
+                untrys = []
+
+                for gate in gates:
+                    size_of_untry = 2**gate.num_qudits
+
+                    if isinstance(gate, VariableUnitaryGateAcc):
+                        pre_padding_untrys = [
+                            unitary_group.rvs(size_of_untry) for
+                            _ in range(num_starts)
+                        ]
+                    else:
+                        pre_padding_untrys = [
+                            gate.get_unitary().numpy for
+                            _ in range(num_starts)
+                        ]
+
+                    untrys.append([
+                        _apply_padding_and_flatten(
+                            pre_padd, gate, biggest_gate_size,
+                        ) for pre_padd in pre_padding_untrys
+                    ])
+
+                untrys = jnp.array(np.stack(untrys, axis=1))
+
+            
+
+            training_states_kets = self.generate_random_states(
+                amount_of_training_states, int(np.prod(radixes)),
+            )
+
+            final_untrys, training_costs, validation_costs, iteration_counts, plateau_windows = \
+                _jited_loop_vmaped_state_sample_sweep(
+                    target, num_qudits, radixes, locations, gates, untrys,
+                    self.dist_tol, self.max_iters, self.beta,
+                    num_starts, self.min_iters, self.diff_tol_r,
+                    self.plateau_windows_size, self.overtrain_ratio,
+                    training_states_kets, validation_states_kets,
+                )
+
+            it = iteration_counts[0]
+            untrys = final_untrys
+            best_start = jnp.argmin(training_costs)
+
+            have_sufficient_states = True
+            if any(training_costs < self.dist_tol):
+                _logger.debug(
+                    f'Terminated: {it} c1 = {training_costs} <= dist_tol.\n'
+                    f'Best start is {best_start}',
+                )
+            elif it >= self.max_iters:
+                _logger.debug(f'Terminated {it}: iteration limit reached. c1 = {training_costs}')
+            elif it > self.min_iters:
+                if all(validation_costs - training_costs > self.overtrain_ratio * training_costs):
+                    _logger.debug(
+                        f'Terminated: {it} overtraining detected in all multistarts',
+                    )
+                    have_sufficient_states = False
+                elif np.all(np.all(plateau_windows, axis=1)):
+                    _logger.debug(
+                        f'Terminated: {it} plateau detected in all multistarts c1 = {training_costs}',
+                    )
+            else:
+                _logger.error(
+                    f'Terminated with no good reason after {it} iterations '
+                    f'with c1s {training_costs}.',
+                )
+        
+            if should_double_the_training_size:
+                amount_of_training_states *= 2
+            else:
+                amount_of_training_states += initial_amount_of_training_states
 
         params: list[Sequence[float]] = []
         for untry, gate in zip(untrys[best_start], gates):
@@ -300,6 +364,7 @@ class QFactorSampleJax(Instantiater):
             for i in range(states_to_add_in_step):
                 states_kets.append(rand_unitary[:, i:i + 1])
             states_to_add -= states_to_add_in_step
+
         return states_kets
 
 
@@ -309,8 +374,8 @@ def _loop_vmaped_state_sample_sweep(
     gates: tuple[Gate, ...], untrys: Array,
     dist_tol: float, max_iters: int, beta: float,
     amount_of_starts: int, min_iters: int,
-    overtrain_ratio: float,
-    training_states_kets: Array,
+    diff_tol_r:float, plateau_windows_size:int,
+    overtrain_ratio: float, training_states_kets: Array,
     validation_states_kets: Array,
 ) -> tuple[Array, Array[float], Array[float], Array[int]]:
 
@@ -352,10 +417,10 @@ def _loop_vmaped_state_sample_sweep(
 
     def should_continue(
         loop_var: tuple[
-            Array, Array[float], Array[float], Array[int],
+            Array, Array[float], Array[float], Array[int],Array[bool]
         ],
     ) -> Array[bool]:
-        _, training_costs, validation_costs, iteration_counts = loop_var
+        _, training_costs, validation_costs, iteration_counts, plateau_windows = loop_var
 
         any_reached_required_tol = jnp.any(
             jax.vmap(
@@ -367,7 +432,11 @@ def _loop_vmaped_state_sample_sweep(
         above_min_iteration = iteration_counts[0] > min_iters
 
         all_reached_over_training = jnp.all(
-            overtrain_ratio * validation_costs >  training_costs,
+            validation_costs - training_costs > overtrain_ratio * training_costs,
+        )
+
+        all_reached_plateau =  jnp.all(
+            jnp.all(plateau_windows, axis=1) 
         )
 
         return jnp.logical_not(
@@ -377,7 +446,10 @@ def _loop_vmaped_state_sample_sweep(
                     reached_max_iteration,
                     jnp.logical_and(
                         above_min_iteration,
-                        all_reached_over_training,
+                        jnp.logical_or(
+                            all_reached_over_training,
+                            all_reached_plateau
+                        )
                     ),
                 ),
             ),
@@ -385,43 +457,52 @@ def _loop_vmaped_state_sample_sweep(
 
     def _while_body_to_be_vmaped(
         loop_var: tuple[
-            Array, Array[float], Array[float], Array[int],
+            Array, Array[float], Array[float], Array[int], Array[bool]
         ],
     ) -> tuple[
             Array, Array[float], Array[float], Array[int],
     ]:
 
-        untrys, training_cost, validation_cost, iteration_count = loop_var
+        untrys, training_cost, validation_cost, iteration_count, plateau_window = loop_var
 
-        untrys_as_matrixs: list[UnitaryMatrixJax] = []
+        untrys_as_matrixes: list[UnitaryMatrixJax] = []
         for gate_index, gate in enumerate(gates):
-            untrys_as_matrixs.append(
+            untrys_as_matrixes.append(
                 UnitaryMatrixJax(
                     _remove_padding_and_create_matrix(
                         untrys[gate_index], gate,
                     ), gate.radixes,
                 ),
             )
+        prev_training_cost = training_cost
 
-        untrys_as_matrixs, training_cost, validation_cost =\
+        untrys_as_matrixes, training_cost, validation_cost =\
             state_sample_single_sweep(
-                locations, gates, untrys_as_matrixs,
+                locations, gates, untrys_as_matrixes,
                 beta, A_train, A_val, B0_train, B0_val,
             )
 
         iteration_count += 1
+
+        have_detected_plateau_in_curr_iter = jnp.abs(
+            prev_training_cost - training_cost
+        ) <= diff_tol_r * jnp.abs(training_cost)
+
+        plateau_window = jnp.concatenate(
+            (jnp.array([have_detected_plateau_in_curr_iter]), plateau_window[:-1]),
+        )
 
         biggest_gate_size = max(gate.num_qudits for gate in gates)
         final_untrys_padded = jnp.array([
             _apply_padding_and_flatten(
                 untry.numpy.flatten(
                 ), gate, biggest_gate_size,
-            ) for untry, gate in zip(untrys_as_matrixs, gates)
+            ) for untry, gate in zip(untrys_as_matrixes, gates)
         ])
 
         return (
             final_untrys_padded, training_cost, validation_cost,
-            iteration_count,
+            iteration_count, plateau_window
         )
 
     while_body_vmaped = jax.vmap(_while_body_to_be_vmaped)
@@ -431,12 +512,26 @@ def _loop_vmaped_state_sample_sweep(
         jnp.ones(amount_of_starts),  # train_cost
         jnp.ones(amount_of_starts),  # val_cost
         jnp.zeros(amount_of_starts, dtype=int),  # iter_count
+        np.zeros((amount_of_starts, plateau_windows_size), dtype=bool)
     )
 
-    r = jax.lax.while_loop(should_continue, while_body_vmaped, initial_loop_var)
-    final_untrys, training_costs, validation_costs, iteration_counts = r
+    if 'PRINT_LOSS_QFACTOR' in os.environ:
+        loop_var = initial_loop_var
+        i = 1
+        while should_continue(loop_var):
+            loop_var = while_body_vmaped(loop_var)
+            
+            untrys, training_costs, validation_costs, iteration_counts, plateau_windows = loop_var
+            print(f'TRAINLOSS{i}:', training_costs)
+            print(f'VALLOSS{i}:', validation_costs)
+            i += 1
+        r = loop_var
+    else:
+        r = jax.lax.while_loop(should_continue, while_body_vmaped, initial_loop_var)
+    
+    final_untrys, training_costs, validation_costs, iteration_counts, plateau_windows = r
 
-    return final_untrys, training_costs, validation_costs, iteration_counts
+    return final_untrys, training_costs, validation_costs, iteration_counts, plateau_windows
 
 
 def state_sample_single_sweep(
@@ -452,17 +547,6 @@ def state_sample_single_sweep(
     for location, utry in zip(locations[:-1], untrys[:-1]):
         B.append(B[-1].copy())
         B[-1].apply_right(utry, location)
-
-    temp = B[-1].copy()
-    temp.apply_right(untrys[-1], locations[-1])
-    training_cost = 2 * (
-        1 - jnp.real(
-            SingleLegSideTensor.calc_env(
-                temp,
-                A_train, [],
-            )[0],
-        ) / A_train.single_leg_radix
-    )
 
     # iterate over every gate from right to left and update it
     new_untrys_rev: list[UnitaryMatrixJax] = []
@@ -503,11 +587,11 @@ def calc_cost(A: RHSTensor, B0: LHSTensor, a: RHSTensor) -> float:
     return jnp.squeeze(cost)
 
 
-if 'NO_JIT_QFACTOR' in os.environ:
+if 'NO_JIT_QFACTOR' in os.environ or 'PRINT_LOSS_QFACTOR' in os.environ:
     _jited_loop_vmaped_state_sample_sweep = _loop_vmaped_state_sample_sweep
 else:
     _jited_loop_vmaped_state_sample_sweep = jax.jit(
         _loop_vmaped_state_sample_sweep, static_argnums=(
-            1, 2, 3, 4, 6, 7, 8, 9, 10,
+            1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13
         ),
     )
