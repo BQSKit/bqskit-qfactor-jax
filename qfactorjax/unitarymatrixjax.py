@@ -106,7 +106,7 @@ class UnitaryMatrixJax(NDArrayOperatorsMixin):
                 for each qudit, defaults to qubits.
 
         Returns:
-            UnitaryMatrix: An identity matrix.
+            UnitaryMatrixJax: An identity matrix.
 
         Raises:
             ValueError: If `dim` is non-positive.

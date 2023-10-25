@@ -8,7 +8,7 @@ from bqskit.qis.unitary.unitarymatrix import UnitaryLike
 from bqskit.qis.unitary.unitarymatrix import UnitaryMatrix
 from jax import Array
 
-from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
+from qfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
 
 class VariableUnitaryGateAcc(VariableUnitaryGate):
