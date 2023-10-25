@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
+
 jax.config.update('jax_enable_x64', True)
 
 
@@ -51,7 +52,7 @@ class QFactorSampleJax(Instantiater):
         amount_of_validation_states: int = 2,
         num_params_coef: float = 1.0,
         overtrain_relative_threshold: float = 0.1,
-        diff_tol_r: float=1e-4,     # Relative criteria for distance change
+        diff_tol_r: float = 1e-4,     # Relative criteria for distance change
         plateau_windows_size: int = 6,
         exact_amount_of_states_to_train_on: int | None = None,
     ):
@@ -75,7 +76,8 @@ class QFactorSampleJax(Instantiater):
         self.overtrain_ratio = overtrain_relative_threshold
         self.diff_tol_r = diff_tol_r
         self.plateau_windows_size = plateau_windows_size
-        self.exact_amount_of_states_to_train_on = exact_amount_of_states_to_train_on
+        self.exact_amount_of_states_to_train_on =\
+            exact_amount_of_states_to_train_on
 
     def instantiate(
         self,
@@ -120,6 +122,7 @@ class QFactorSampleJax(Instantiater):
         target: UnitaryLike | StateLike | StateSystemLike,
         num_starts: int,
     ) -> npt.NDArray[np.float64]:
+
         if len(circuit) == 0:
             return np.array([])
 
@@ -138,14 +141,13 @@ class QFactorSampleJax(Instantiater):
         radixes = target.radixes
         num_qudits = target.num_qudits
 
-        
         # Initial number of states to use can b
         if self.exact_amount_of_states_to_train_on is None:
             amount_of_params_in_circuit = 0
             for g in gates:
-                amount_of_params_in_circuit +=  g.num_params
+                amount_of_params_in_circuit += g.num_params
             initial_amount_of_training_states = int(
-                np.sqrt(amount_of_params_in_circuit) * self.num_params_coef
+                np.sqrt(amount_of_params_in_circuit) * self.num_params_coef,
             )
         else:
             initial_amount_of_training_states =\
@@ -154,9 +156,8 @@ class QFactorSampleJax(Instantiater):
         amount_of_training_states = initial_amount_of_training_states
 
         validation_states_kets = self.generate_random_states(
-                self.amount_of_validation_states, int(np.prod(radixes)),
-            )
-
+            self.amount_of_validation_states, int(np.prod(radixes)),
+        )
 
         generate_untrys_only_once = 'GEN_ONCE' in os.environ
 
@@ -184,11 +185,11 @@ class QFactorSampleJax(Instantiater):
                 ])
 
             untrys = jnp.array(np.stack(untrys, axis=1))
-        
+
         have_sufficient_states = False
         should_double_the_training_size = True
         while not have_sufficient_states:
-            
+
             if not generate_untrys_only_once:
                 untrys = []
 
@@ -214,20 +215,20 @@ class QFactorSampleJax(Instantiater):
 
                 untrys = jnp.array(np.stack(untrys, axis=1))
 
-            
-
             training_states_kets = self.generate_random_states(
                 amount_of_training_states, int(np.prod(radixes)),
             )
 
-            final_untrys, training_costs, validation_costs, iteration_counts, plateau_windows = \
-                _jited_loop_vmaped_state_sample_sweep(
-                    target, num_qudits, radixes, locations, gates, untrys,
-                    self.dist_tol, self.max_iters, self.beta,
-                    num_starts, self.min_iters, self.diff_tol_r,
-                    self.plateau_windows_size, self.overtrain_ratio,
-                    training_states_kets, validation_states_kets,
-                )
+            results = _jited_loop_vmaped_state_sample_sweep(
+                target, num_qudits, radixes, locations, gates, untrys,
+                self.dist_tol, self.max_iters, self.beta,
+                num_starts, self.min_iters, self.diff_tol_r,
+                self.plateau_windows_size, self.overtrain_ratio,
+                training_states_kets, validation_states_kets,
+            )
+
+            final_untrys, training_costs, validation_costs, iteration_counts, \
+                plateau_windows = results
 
             it = iteration_counts[0]
             untrys = final_untrys
@@ -240,23 +241,31 @@ class QFactorSampleJax(Instantiater):
                     f'Best start is {best_start}',
                 )
             elif it >= self.max_iters:
-                _logger.debug(f'Terminated {it}: iteration limit reached. c1 = {training_costs}')
+                _logger.debug(
+                    f'Terminated {it}: iteration limit reached. c1 = '
+                    f'{training_costs}',
+                )
             elif it > self.min_iters:
-                if all(validation_costs - training_costs > self.overtrain_ratio * training_costs):
+                val_to_train_diff = validation_costs - training_costs
+                if all(
+                    val_to_train_diff > self.overtrain_ratio * training_costs,
+                ):
                     _logger.debug(
-                        f'Terminated: {it} overtraining detected in all multistarts',
+                        f'Terminated: {it} overtraining detected in'
+                        f' all multistarts',
                     )
                     have_sufficient_states = False
                 elif np.all(np.all(plateau_windows, axis=1)):
                     _logger.debug(
-                        f'Terminated: {it} plateau detected in all multistarts c1 = {training_costs}',
+                        f'Terminated: {it} plateau detected in all'
+                        f' multistarts c1 = {training_costs}',
                     )
             else:
                 _logger.error(
                     f'Terminated with no good reason after {it} iterations '
                     f'with c1s {training_costs}.',
                 )
-        
+
             if should_double_the_training_size:
                 amount_of_training_states *= 2
             else:
@@ -374,10 +383,10 @@ def _loop_vmaped_state_sample_sweep(
     gates: tuple[Gate, ...], untrys: Array,
     dist_tol: float, max_iters: int, beta: float,
     amount_of_starts: int, min_iters: int,
-    diff_tol_r:float, plateau_windows_size:int,
+    diff_tol_r: float, plateau_windows_size: int,
     overtrain_ratio: float, training_states_kets: Array,
     validation_states_kets: Array,
-) -> tuple[Array, Array[float], Array[float], Array[int]]:
+) -> tuple[Array, Array[float], Array[float], Array[int], Array[bool]]:
 
     # Calculate the bras for the validation and training states
     validation_states_bras = jax.vmap(
@@ -417,10 +426,11 @@ def _loop_vmaped_state_sample_sweep(
 
     def should_continue(
         loop_var: tuple[
-            Array, Array[float], Array[float], Array[int],Array[bool]
+            Array, Array[float], Array[float], Array[int], Array[bool],
         ],
     ) -> Array[bool]:
-        _, training_costs, validation_costs, iteration_counts, plateau_windows = loop_var
+        _, training_costs, validation_costs, \
+            iteration_counts, plateau_windows = loop_var
 
         any_reached_required_tol = jnp.any(
             jax.vmap(
@@ -431,12 +441,13 @@ def _loop_vmaped_state_sample_sweep(
         reached_max_iteration = iteration_counts[0] > max_iters
         above_min_iteration = iteration_counts[0] > min_iters
 
+        val_to_train_diff = validation_costs - training_costs
         all_reached_over_training = jnp.all(
-            validation_costs - training_costs > overtrain_ratio * training_costs,
+            val_to_train_diff > overtrain_ratio * training_costs,
         )
 
-        all_reached_plateau =  jnp.all(
-            jnp.all(plateau_windows, axis=1) 
+        all_reached_plateau = jnp.all(
+            jnp.all(plateau_windows, axis=1),
         )
 
         return jnp.logical_not(
@@ -448,8 +459,8 @@ def _loop_vmaped_state_sample_sweep(
                         above_min_iteration,
                         jnp.logical_or(
                             all_reached_over_training,
-                            all_reached_plateau
-                        )
+                            all_reached_plateau,
+                        ),
                     ),
                 ),
             ),
@@ -457,13 +468,14 @@ def _loop_vmaped_state_sample_sweep(
 
     def _while_body_to_be_vmaped(
         loop_var: tuple[
-            Array, Array[float], Array[float], Array[int], Array[bool]
+            Array, Array[float], Array[float], Array[int], Array[bool],
         ],
     ) -> tuple[
-            Array, Array[float], Array[float], Array[int],
+            Array, Array[float], Array[float], Array[int], Array[bool],
     ]:
 
-        untrys, training_cost, validation_cost, iteration_count, plateau_window = loop_var
+        untrys, training_cost, validation_cost, iteration_count, \
+            plateau_window = loop_var
 
         untrys_as_matrixes: list[UnitaryMatrixJax] = []
         for gate_index, gate in enumerate(gates):
@@ -485,11 +497,14 @@ def _loop_vmaped_state_sample_sweep(
         iteration_count += 1
 
         have_detected_plateau_in_curr_iter = jnp.abs(
-            prev_training_cost - training_cost
+            prev_training_cost - training_cost,
         ) <= diff_tol_r * jnp.abs(training_cost)
 
         plateau_window = jnp.concatenate(
-            (jnp.array([have_detected_plateau_in_curr_iter]), plateau_window[:-1]),
+            (
+                jnp.array([have_detected_plateau_in_curr_iter]),
+                plateau_window[:-1],
+            ),
         )
 
         biggest_gate_size = max(gate.num_qudits for gate in gates)
@@ -502,7 +517,7 @@ def _loop_vmaped_state_sample_sweep(
 
         return (
             final_untrys_padded, training_cost, validation_cost,
-            iteration_count, plateau_window
+            iteration_count, plateau_window,
         )
 
     while_body_vmaped = jax.vmap(_while_body_to_be_vmaped)
@@ -512,7 +527,7 @@ def _loop_vmaped_state_sample_sweep(
         jnp.ones(amount_of_starts),  # train_cost
         jnp.ones(amount_of_starts),  # val_cost
         jnp.zeros(amount_of_starts, dtype=int),  # iter_count
-        np.zeros((amount_of_starts, plateau_windows_size), dtype=bool)
+        np.zeros((amount_of_starts, plateau_windows_size), dtype=bool),
     )
 
     if 'PRINT_LOSS_QFACTOR' in os.environ:
@@ -520,18 +535,25 @@ def _loop_vmaped_state_sample_sweep(
         i = 1
         while should_continue(loop_var):
             loop_var = while_body_vmaped(loop_var)
-            
-            untrys, training_costs, validation_costs, iteration_counts, plateau_windows = loop_var
+
+            untrys, training_costs, validation_costs, iteration_counts, \
+                plateau_windows = loop_var
             print(f'TRAINLOSS{i}:', training_costs)
             print(f'VALLOSS{i}:', validation_costs)
             i += 1
         r = loop_var
     else:
-        r = jax.lax.while_loop(should_continue, while_body_vmaped, initial_loop_var)
-    
-    final_untrys, training_costs, validation_costs, iteration_counts, plateau_windows = r
+        r = jax.lax.while_loop(
+            should_continue, while_body_vmaped, initial_loop_var,
+        )
 
-    return final_untrys, training_costs, validation_costs, iteration_counts, plateau_windows
+    final_untrys, training_costs, validation_costs, iteration_counts, \
+        plateau_windows = r
+
+    return (
+        final_untrys, training_costs, validation_costs,
+        iteration_counts, plateau_windows,
+    )
 
 
 def state_sample_single_sweep(
@@ -592,6 +614,6 @@ if 'NO_JIT_QFACTOR' in os.environ or 'PRINT_LOSS_QFACTOR' in os.environ:
 else:
     _jited_loop_vmaped_state_sample_sweep = jax.jit(
         _loop_vmaped_state_sample_sweep, static_argnums=(
-            1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13
+            1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13,
         ),
     )
