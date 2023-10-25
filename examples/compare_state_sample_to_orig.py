@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import time
 from bqskit.ir.circuit import Circuit
 from bqskit.compiler import Compiler, CompilationTask
@@ -9,11 +8,40 @@ from bqskit.compiler import Compiler, CompilationTask
 from bqskitqfactorjax.qfactor_sample_jax import QFactorSampleJax
 from bqskitqfactorjax.qfactor_jax import QFactor_jax
 from bqskit.passes import ToVariablePass
+from bqskit import enable_logging
 
-dist_tol_requested = float(sys.argv[2])
-num_mutlistarts = 16
+enable_logging(verbose=True)
 
-num_params_coeff = float(sys.argv[3])
+
+
+import argparse
+
+parser = argparse.ArgumentParser(description='Arguments for performance analysis')
+
+parser.add_argument('--input_qasm', type=str, required=True)
+parser.add_argument('--multistarts', type=int, default=32)
+parser.add_argument('--max_iters', type=int,  default=300)
+parser.add_argument('--dist_tol', type=float,  default=1e-8)
+parser.add_argument('--num_params_coef', type=int,  default=1)
+parser.add_argument('--exact_amount_of_sample_states', type=int)
+parser.add_argument('--overtrain_relative_threshold', type=float,  default=0.1)
+
+
+
+params = parser.parse_args()
+    
+
+print(params)
+
+file_name = params.input_qasm
+dist_tol_requested = params.dist_tol
+num_mutlistarts = params.multistarts
+max_iters = params.max_iters
+
+num_params_coef = params.num_params_coef
+
+exact_amount_of_sample_states = params.exact_amount_of_sample_states
+overtrain_relative_threshold = params.overtrain_relative_threshold
 
 
 instantiate_options = {
@@ -48,25 +76,21 @@ qfactor_sample_gpu_instantiator = QFactorSampleJax(
 
     dist_tol=dist_tol_requested,       # Stopping criteria for distance
 
-    max_iters=2,      # Maximum number of iterations
-    min_iters=1,          # Minimum number of iterations
+    max_iters=max_iters,      # Maximum number of iterations
+    min_iters=5,          # Minimum number of iterations
 
     # Regularization parameter - [0.0 - 1.0]
     # Increase to overcome local minima at the price of longer compute
     beta=0.0,
 
     amount_of_validation_states=2,
-    num_params_coeff=num_params_coeff, # indicates the ratio between the sum of parameters in the circuits to the sample size.
-    overtrain_ratio=1 / 32,
+    num_params_coef=num_params_coef, # indicates the ratio between the sum of parameters in the circuits to the sample size.
+    overtrain_relative_threshold=overtrain_relative_threshold,
+    exact_amount_of_states_to_train_on = exact_amount_of_sample_states,
 )
 
-# file_name = 'heisenberg64_10q_block_100.qasm'
-# file_name = 'heisenberg64_10q_block_036.qasm'
-file_name = sys.argv[1]
-# orig_10q_block_cir = Circuit.from_file('adder63_10q_block_47.qasm')
-# orig_10q_block_cir = Circuit.from_file('adder63_10q_block_63.qasm')
 
-print(f'Will use {file_name} {dist_tol_requested = } {num_mutlistarts = } {num_params_coeff = }')
+print(f'Will use {file_name} {dist_tol_requested = } {num_mutlistarts = } {num_params_coef = }')
 
 orig_10q_block_cir = Circuit.from_file(f'{file_name}')
 
@@ -86,7 +110,7 @@ orig_10q_block_cir_vu.instantiate(target, multistarts=num_mutlistarts, method=qf
 sample_inst_time = time.perf_counter() - tic
 inst_sample_dist_from_target = orig_10q_block_cir_vu.get_unitary().get_distance_from(target, 1)
 
-print(f'sample method {sample_inst_time = } {inst_sample_dist_from_target = } {num_params_coeff = }')
+print(f'sample method {sample_inst_time = } {inst_sample_dist_from_target = } {num_params_coef = }')
 
 # tic = time.perf_counter()
 # orig_10q_block_cir_vu.instantiate(target, multistarts=num_mutlistarts, method=qfactr_gpu_instantiator)
