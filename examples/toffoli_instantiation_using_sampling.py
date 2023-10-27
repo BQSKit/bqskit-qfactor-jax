@@ -11,11 +11,11 @@ from bqskit.ir.circuit import Circuit
 from bqskit.ir.gates import VariableUnitaryGate
 from bqskit.qis.unitary import UnitaryMatrix
 
-from bqskitqfactorjax.qfactor_sample_jax import QFactorSampleJax
+from qfactorjax.qfactor_sample_jax import QFactorSampleJax
 
 
 def run_toffoli_instantiation(dist_tol_requested: float = 1e-10) -> float:
-    qfactr_gpu_instantiator = QFactorSampleJax(
+    qfactor_gpu_instantiator = QFactorSampleJax(
 
         dist_tol=dist_tol_requested,       # Stopping criteria for distance
 
@@ -56,7 +56,7 @@ def run_toffoli_instantiation(dist_tol_requested: float = 1e-10) -> float:
     circuit.instantiate(
         toffoli,
         multistarts=16,
-        method=qfactr_gpu_instantiator,
+        method=qfactor_gpu_instantiator,
     )
 
     # Calculate and print final distance

@@ -7,7 +7,7 @@ import jax.numpy as jnp
 from bqskit.ir import CircuitLocation
 from jax import Array
 
-from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
+from qfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
 
 T = TypeVar('T', bound='SingleLegSideTensor')

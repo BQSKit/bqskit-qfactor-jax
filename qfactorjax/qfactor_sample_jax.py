@@ -21,13 +21,13 @@ from bqskit.qis.state import StateVector
 from jax import Array
 from scipy.stats import unitary_group
 
-from bqskitqfactorjax.qfactor_jax import _apply_padding_and_flatten
-from bqskitqfactorjax.qfactor_jax import _remove_padding_and_create_matrix
-from bqskitqfactorjax.singlelegedtensor import LHSTensor
-from bqskitqfactorjax.singlelegedtensor import RHSTensor
-from bqskitqfactorjax.singlelegedtensor import SingleLegSideTensor
-from bqskitqfactorjax.unitary_acc import VariableUnitaryGateAcc
-from bqskitqfactorjax.unitarymatrixjax import UnitaryMatrixJax
+from qfactorjax.qfactor import _apply_padding_and_flatten
+from qfactorjax.qfactor import _remove_padding_and_create_matrix
+from qfactorjax.singlelegedtensor import LHSTensor
+from qfactorjax.singlelegedtensor import RHSTensor
+from qfactorjax.singlelegedtensor import SingleLegSideTensor
+from qfactorjax.unitary_acc import VariableUnitaryGateAcc
+from qfactorjax.unitarymatrixjax import UnitaryMatrixJax
 
 if TYPE_CHECKING:
     from bqskit.ir.circuit import Circuit

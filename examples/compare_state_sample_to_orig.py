@@ -5,8 +5,8 @@ from bqskit.ir.circuit import Circuit
 from bqskit.compiler import Compiler, CompilationTask
 # from inst_pass import InstPass
 
-from bqskitqfactorjax.qfactor_sample_jax import QFactorSampleJax
-from bqskitqfactorjax.qfactor_jax import QFactor_jax
+from qfactorjax.qfactor import QFactorJax
+from qfactorjax.qfactor_sample_jax import QFactorSampleJax
 from bqskit.passes import ToVariablePass
 from bqskit import enable_logging
 
@@ -49,7 +49,7 @@ instantiate_options = {
                     }
 
 
-qfactor_gpu_instantiator = QFactor_jax(
+qfactor_gpu_instantiator = QFactorJax(
 
     dist_tol=dist_tol_requested,       # Stopping criteria for distance
 
