@@ -52,7 +52,7 @@ class QFactorSampleJax(Instantiater):
         amount_of_validation_states: int = 2,
         num_params_coef: float = 1.0,
         overtrain_relative_threshold: float = 0.1,
-        diff_tol_r: float = 1e-4,     # Relative criteria for distance change
+        diff_tol_r: float = 1e-2,     # Relative criteria for distance change
         plateau_windows_size: int = 6,
         exact_amount_of_states_to_train_on: int | None = None,
     ):
@@ -128,18 +128,23 @@ class QFactorSampleJax(Instantiater):
 
         circuit = circuit.copy()
 
-        # A very ugly casting
+        gates_list = []
         for op in circuit:
-            g = op.gate
-            if isinstance(g, VariableUnitaryGate):
-                g.__class__ = VariableUnitaryGateAcc
+            if isinstance(op.gate, VariableUnitaryGate):
+                new_gate = VariableUnitaryGateAcc(
+                    op.gate.num_qudits,
+                    op.gate.radixes,
+                )
+                gates_list.append(new_gate)
+            else:
+                gates_list.append(op.gate)
 
         target = UnitaryMatrixJax(self.check_target(target))
-        locations = tuple([op.location for op in circuit])
-        gates = tuple([op.gate for op in circuit])
-        biggest_gate_size = max(gate.num_qudits for gate in gates)
         radixes = target.radixes
         num_qudits = target.num_qudits
+        locations = tuple([op.location for op in circuit])
+        gates = tuple(gates_list)
+        biggest_gate_dim = max(g.dim for g in circuit.gate_set)
 
         # Initial number of states to use can b
         if self.exact_amount_of_states_to_train_on is None:
@@ -180,7 +185,7 @@ class QFactorSampleJax(Instantiater):
 
                 untrys.append([
                     _apply_padding_and_flatten(
-                        pre_padd, gate, biggest_gate_size,
+                        pre_padd, gate, biggest_gate_dim,
                     ) for pre_padd in pre_padding_untrys
                 ])
 
@@ -209,7 +214,7 @@ class QFactorSampleJax(Instantiater):
 
                     untrys.append([
                         _apply_padding_and_flatten(
-                            pre_padd, gate, biggest_gate_size,
+                            pre_padd, gate, biggest_gate_dim,
                         ) for pre_padd in pre_padding_untrys
                     ])
 
@@ -507,11 +512,11 @@ def _loop_vmaped_state_sample_sweep(
             ),
         )
 
-        biggest_gate_size = max(gate.num_qudits for gate in gates)
+        biggest_gate_dim = max(g.dim for g in gates)
         final_untrys_padded = jnp.array([
             _apply_padding_and_flatten(
                 untry.numpy.flatten(
-                ), gate, biggest_gate_size,
+                ), gate, biggest_gate_dim,
             ) for untry, gate in zip(untrys_as_matrixes, gates)
         ])
 
