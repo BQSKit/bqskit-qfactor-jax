@@ -45,14 +45,14 @@ class QFactorSampleJax(Instantiater):
 
     def __init__(
         self,
-        dist_tol: float = 1e-10,
+        dist_tol: float = 1e-8,
         max_iters: int = 100000,
-        min_iters: int = 1000,
+        min_iters: int = 2,
         beta: float = 0.0,
         amount_of_validation_states: int = 2,
         num_params_coef: float = 1.0,
         overtrain_relative_threshold: float = 0.1,
-        diff_tol_r: float = 1e-2,     # Relative criteria for distance change
+        diff_tol_r: float = 1e-4,     # Relative criteria for distance change
         plateau_windows_size: int = 6,
         exact_amount_of_states_to_train_on: int | None = None,
     ):
