@@ -78,6 +78,8 @@ class QFactorSampleJax(Instantiater):
         self.plateau_windows_size = plateau_windows_size
         self.exact_amount_of_states_to_train_on =\
             exact_amount_of_states_to_train_on
+        
+        self.amount_of_training_states_used_last_iter = 0
 
     def instantiate(
         self,
@@ -270,7 +272,7 @@ class QFactorSampleJax(Instantiater):
                     f'Terminated with no good reason after {it} iterations '
                     f'with c1s {training_costs}.',
                 )
-
+            self.amount_of_training_states_used_last_iter = amount_of_training_states
             if should_double_the_training_size:
                 amount_of_training_states *= 2
             else:
