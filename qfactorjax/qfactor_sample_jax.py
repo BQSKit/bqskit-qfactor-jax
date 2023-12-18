@@ -226,7 +226,11 @@ class QFactorSampleJax(Instantiater):
                 amount_of_training_states, int(np.prod(radixes)),
             )
 
-            results = _jited_loop_vmaped_state_sample_sweep(
+            if 2**num_qudits < amount_of_training_states:
+                _logger.error(f"Aborted, was trying to use {amount_of_training_states = } while {num_qudits =}")
+                best_start = 0 #need to return some values
+                break
+
                 target, num_qudits, radixes, locations, gates, untrys,
                 self.dist_tol, self.max_iters, self.beta,
                 num_starts, self.min_iters, self.diff_tol_r,
