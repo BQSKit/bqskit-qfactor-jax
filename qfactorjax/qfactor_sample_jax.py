@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from bqskit.qis.state.system import StateSystemLike
     from bqskit.qis.unitary.unitarymatrix import UnitaryLike
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger('bqskit.instant.qf-sample-jax')
 
 
 jax.config.update('jax_enable_x64', True)
