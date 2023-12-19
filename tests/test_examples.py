@@ -7,12 +7,14 @@ from bqskit.ir.gates import U3Gate
 
 from examples.gate_deletion_syth import run_gate_del_flow_example
 from examples.toffoli_instantiation import run_toffoli_instantiation
-from examples.toffoli_instantiation_using_sampling import run_toffoli_instantiation as run_toffoli_instantiation_using_sampling
+from examples.toffoli_instantiation_using_sampling import\
+    run_toffoli_instantiation as run_toffoli_instantiation_using_sampling
 
 
 def test_toffoli_instantiation() -> None:
     distance = run_toffoli_instantiation()
     assert distance <= 1e-10
+
 
 def test_toffoli_instantiation_using_sampling() -> None:
     distance = run_toffoli_instantiation_using_sampling()

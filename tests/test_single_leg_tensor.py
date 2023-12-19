@@ -7,11 +7,12 @@ import jax.numpy as jnp
 import pytest
 from bqskit.ir.gates import CXGate
 from bqskit.ir.gates import HGate
+from scipy.stats import unitary_group
+
 from qfactorjax.singlelegedtensor import LHSTensor
 from qfactorjax.singlelegedtensor import RHSTensor
 from qfactorjax.singlelegedtensor import SingleLegSideTensor
 from qfactorjax.unitarymatrixjax import UnitaryMatrixJax
-from scipy.stats import unitary_group
 
 
 @pytest.mark.parametrize(
