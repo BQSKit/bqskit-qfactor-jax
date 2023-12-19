@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from enum import Enum
 from typing import Sequence
 from typing import TYPE_CHECKING
 
@@ -19,6 +20,7 @@ from bqskit.qis import UnitaryMatrix
 from bqskit.qis.state import StateSystem
 from bqskit.qis.state import StateVector
 from jax import Array
+from jax._src.lib import xla_extension as xe
 from scipy.stats import unitary_group
 
 from qfactorjax.qfactor import _apply_padding_and_flatten
@@ -39,6 +41,14 @@ _logger = logging.getLogger('bqskit.instant.qf-sample-jax')
 
 
 jax.config.update('jax_enable_x64', True)
+
+
+class TermCondition(Enum):
+    UNKNOWN = 0
+    REACHED_TARGET = 1
+    EXCEEDED_MAX_ITER = 2
+    PLATEAU_DETECTED = 3
+    EXCEEDED_TRAINING_SET_SIZE = 4
 
 
 class QFactorSampleJax(Instantiater):
@@ -78,8 +88,8 @@ class QFactorSampleJax(Instantiater):
         self.plateau_windows_size = plateau_windows_size
         self.exact_amount_of_states_to_train_on =\
             exact_amount_of_states_to_train_on
-        
-        self.amount_of_training_states_used_last_iter = 0
+
+        self.targets_training_set_size_cache: dict[int, int] = {}
 
     def instantiate(
         self,
@@ -141,6 +151,7 @@ class QFactorSampleJax(Instantiater):
             else:
                 gates_list.append(op.gate)
 
+        target_hash = target.__hash__()
         target = UnitaryMatrixJax(self.check_target(target))
         radixes = target.radixes
         num_qudits = target.num_qudits
@@ -148,8 +159,10 @@ class QFactorSampleJax(Instantiater):
         gates = tuple(gates_list)
         biggest_gate_dim = max(g.dim for g in circuit.gate_set)
 
-        # Initial number of states to use can b
-        if self.exact_amount_of_states_to_train_on is None:
+        if target_hash in self.targets_training_set_size_cache:
+            initial_amount_of_training_states =\
+                self.targets_training_set_size_cache[target_hash]
+        elif self.exact_amount_of_states_to_train_on is None:
             amount_of_params_in_circuit = 0
             for g in gates:
                 amount_of_params_in_circuit += g.num_params
@@ -159,6 +172,15 @@ class QFactorSampleJax(Instantiater):
         else:
             initial_amount_of_training_states =\
                 self.exact_amount_of_states_to_train_on
+
+            if np.prod(radixes) < initial_amount_of_training_states:
+                _logger.warning(
+                    f'Requested to use '
+                    f'{initial_amount_of_training_states} training '
+                    'states, while the prod of the radixes is '
+                    f'{np.prod(radixes)}. This algorithm shines when we have '
+                    f'much less training states than 2^prod(radixes)',
+                )
 
         amount_of_training_states = initial_amount_of_training_states
 
@@ -193,10 +215,9 @@ class QFactorSampleJax(Instantiater):
 
             untrys = jnp.array(np.stack(untrys, axis=1))
 
-        have_sufficient_states = False
+        term_condition = None
         should_double_the_training_size = True
-        while not have_sufficient_states:
-
+        while term_condition is None:
             if not generate_untrys_only_once:
                 untrys = []
 
@@ -226,16 +247,9 @@ class QFactorSampleJax(Instantiater):
                 amount_of_training_states, int(np.prod(radixes)),
             )
 
-            if 2**num_qudits < amount_of_training_states:
-                _logger.error(f"Aborted, was trying to use {amount_of_training_states = } while {num_qudits =}")
-                best_start = 0 #need to return some values
-                break
-
-                target, num_qudits, radixes, locations, gates, untrys,
-                self.dist_tol, self.max_iters, self.beta,
-                num_starts, self.min_iters, self.diff_tol_r,
-                self.plateau_windows_size, self.overtrain_ratio,
-                training_states_kets, validation_states_kets,
+            results = self.safe_call_jited_vmaped_state_sample_sweep(
+                target, num_starts, radixes, num_qudits, locations, gates,
+                validation_states_kets, untrys, training_states_kets,
             )
 
             final_untrys, training_costs, validation_costs, iteration_counts, \
@@ -245,42 +259,68 @@ class QFactorSampleJax(Instantiater):
             untrys = final_untrys
             best_start = jnp.argmin(training_costs)
 
-            have_sufficient_states = True
             if any(training_costs < self.dist_tol):
                 _logger.debug(
                     f'Terminated: {it} c1 = {training_costs} <= dist_tol.\n'
                     f'Best start is {best_start}',
                 )
+                term_condition = TermCondition.REACHED_TARGET
             elif it >= self.max_iters:
                 _logger.debug(
                     f'Terminated {it}: iteration limit reached. c1 = '
                     f'{training_costs}',
                 )
+                term_condition = TermCondition.EXCEEDED_MAX_ITER
             elif it > self.min_iters:
                 val_to_train_diff = validation_costs - training_costs
-                if all(
+
+                if np.all(np.all(plateau_windows, axis=1)):
+                    _logger.debug(
+                        f'Terminated: {it} plateau detected in all'
+                        f' multistarts c1 = {training_costs}',
+                    )
+                    term_condition = TermCondition.PLATEAU_DETECTED
+
+                elif all(
                     val_to_train_diff > self.overtrain_ratio * training_costs,
                 ):
                     _logger.debug(
                         f'Terminated: {it} overtraining detected in'
                         f' all multistarts',
                     )
-                    have_sufficient_states = False
-                elif np.all(np.all(plateau_windows, axis=1)):
-                    _logger.debug(
-                        f'Terminated: {it} plateau detected in all'
-                        f' multistarts c1 = {training_costs}',
-                    )
+
+                else:
+                    term_condition = TermCondition.UNKNOWN
             else:
+                term_condition = TermCondition.UNKNOWN
+
+            if term_condition == TermCondition.UNKNOWN:
                 _logger.error(
                     f'Terminated with no good reason after {it} iterations '
                     f'with c1s {training_costs}.',
                 )
-            self.amount_of_training_states_used_last_iter = amount_of_training_states
-            if should_double_the_training_size:
-                amount_of_training_states *= 2
-            else:
-                amount_of_training_states += initial_amount_of_training_states
+
+            if (
+                term_condition == TermCondition.REACHED_TARGET
+                or term_condition == TermCondition.PLATEAU_DETECTED
+                or term_condition == TermCondition.EXCEEDED_MAX_ITER
+            ):
+                self.targets_training_set_size_cache[target_hash] =\
+                    amount_of_training_states
+
+            if term_condition is None:
+                if should_double_the_training_size:
+                    amount_of_training_states *= 2
+                else:
+                    amount_of_training_states +=\
+                        initial_amount_of_training_states
+
+                if amount_of_training_states > np.prod(radixes):
+                    term_condition = TermCondition.EXCEEDED_TRAINING_SET_SIZE
+                    _logger.debug(
+                        'Stopping as we reached the max number of'
+                        ' training states',
+                    )
 
         params: list[Sequence[float]] = []
         for untry, gate in zip(untrys[best_start], gates):
@@ -294,6 +334,63 @@ class QFactorSampleJax(Instantiater):
                 )
 
         return np.array(params)
+
+    def safe_call_jited_vmaped_state_sample_sweep(
+            self,
+            target: UnitaryMatrixJax,
+            num_starts: int,
+            radixes: tuple[int, ...],
+            num_qudits: int,
+            locations: tuple[CircuitLocation, ...],
+            gates: tuple[Gate, ...],
+            validation_states_kets: Array,
+            untrys: Array,
+            training_states_kets: Array,
+    ) -> tuple[Array, Array[float], Array[float], Array[int], Array[bool]]:
+
+        try:
+            results = _jited_loop_vmaped_state_sample_sweep(
+                target, num_qudits, radixes, locations, gates, untrys,
+                self.dist_tol, self.max_iters, self.beta,
+                num_starts, self.min_iters, self.diff_tol_r,
+                self.plateau_windows_size, self.overtrain_ratio,
+                training_states_kets, validation_states_kets,
+            )
+
+        except xe.XlaRuntimeError as e:
+
+            if num_starts == 1:
+                _logger.error(
+                    f'Got a runtime error {e}, while {num_starts = } ,exiting',
+                )
+                raise e
+
+            _logger.debug(
+                f'Got a runtime error {e} will try re-run with half the starts',
+            )
+
+            mid_point = num_starts // 2
+            first_half_untrys = untrys[:mid_point]
+            second_half_untrys = untrys[mid_point:]
+
+            results1 = self.safe_call_jited_vmaped_state_sample_sweep(
+                target, mid_point, radixes, num_qudits, locations, gates,
+                validation_states_kets, first_half_untrys,
+                training_states_kets,
+            )
+
+            results2 = self.safe_call_jited_vmaped_state_sample_sweep(
+                target, num_starts - mid_point, radixes, num_qudits, locations,
+                gates, validation_states_kets, second_half_untrys,
+                training_states_kets,
+            )
+
+            results = tuple(
+                jnp.concatenate((results1[i], results2[i]))
+                for i in range(5)
+            )
+
+        return results
 
     @staticmethod
     def get_method_name() -> str:
