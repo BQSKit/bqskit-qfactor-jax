@@ -1,35 +1,35 @@
 from __future__ import annotations
 
+import argparse
 import time
+
+from bqskit import enable_logging
+from bqskit.compiler import CompilationTask
+from bqskit.compiler import Compiler
 from bqskit.ir.circuit import Circuit
-from bqskit.compiler import Compiler, CompilationTask
-# from inst_pass import InstPass
+from bqskit.passes import ToVariablePass
 
 from qfactorjax.qfactor import QFactorJax
 from qfactorjax.qfactor_sample_jax import QFactorSampleJax
-from bqskit.passes import ToVariablePass
-from bqskit import enable_logging
 
 enable_logging(verbose=True)
 
 
-
-import argparse
-
-parser = argparse.ArgumentParser(description='Arguments for performance analysis')
+parser = argparse.ArgumentParser(
+    description='Arguments for performance analysis',
+)
 
 parser.add_argument('--input_qasm', type=str, required=True)
 parser.add_argument('--multistarts', type=int, default=32)
-parser.add_argument('--max_iters', type=int,  default=300)
-parser.add_argument('--dist_tol', type=float,  default=1e-8)
-parser.add_argument('--num_params_coef', type=int,  default=1)
+parser.add_argument('--max_iters', type=int, default=300)
+parser.add_argument('--dist_tol', type=float, default=1e-8)
+parser.add_argument('--num_params_coef', type=int, default=1)
 parser.add_argument('--exact_amount_of_sample_states', type=int)
-parser.add_argument('--overtrain_relative_threshold', type=float,  default=0.1)
-
+parser.add_argument('--overtrain_relative_threshold', type=float, default=0.1)
 
 
 params = parser.parse_args()
-    
+
 
 print(params)
 
@@ -45,8 +45,8 @@ overtrain_relative_threshold = params.overtrain_relative_threshold
 
 
 instantiate_options = {
-                        'multistarts': num_mutlistarts,
-                    }
+    'multistarts': num_mutlistarts,
+}
 
 
 qfactor_gpu_instantiator = QFactorJax(
@@ -84,13 +84,16 @@ qfactor_sample_gpu_instantiator = QFactorSampleJax(
     beta=0.0,
 
     amount_of_validation_states=2,
-    num_params_coef=num_params_coef, # indicates the ratio between the sum of parameters in the circuits to the sample size.
+    # indicates the ratio between the sum of parameters in the circuits to the sample size.
+    num_params_coef=num_params_coef,
     overtrain_relative_threshold=overtrain_relative_threshold,
-    exact_amount_of_states_to_train_on = exact_amount_of_sample_states,
+    exact_amount_of_states_to_train_on=exact_amount_of_sample_states,
 )
 
 
-print(f'Will use {file_name} {dist_tol_requested = } {num_mutlistarts = } {num_params_coef = }')
+print(
+    f'Will use {file_name} {dist_tol_requested = } {num_mutlistarts = } {num_params_coef = }',
+)
 
 orig_10q_block_cir = Circuit.from_file(f'{file_name}')
 
@@ -103,28 +106,25 @@ with Compiler(num_workers=1) as compiler:
 tic = time.perf_counter()
 target = orig_10q_block_cir_vu.get_unitary()
 time_to_simulate_circ = time.perf_counter() - tic
-print(f"Time to simulate was {time_to_simulate_circ}")
+print(f'Time to simulate was {time_to_simulate_circ}')
 
 tic = time.perf_counter()
-orig_10q_block_cir_vu.instantiate(target, multistarts=num_mutlistarts, method=qfactor_sample_gpu_instantiator)
+orig_10q_block_cir_vu.instantiate(
+    target, multistarts=num_mutlistarts, method=qfactor_sample_gpu_instantiator,
+)
 sample_inst_time = time.perf_counter() - tic
-inst_sample_dist_from_target = orig_10q_block_cir_vu.get_unitary().get_distance_from(target, 1)
+inst_sample_dist_from_target = orig_10q_block_cir_vu.get_unitary(
+).get_distance_from(target, 1)
 
-print(f'sample method {sample_inst_time = } {inst_sample_dist_from_target = } {num_params_coef = }')
+print(
+    f'sample method {sample_inst_time = } {inst_sample_dist_from_target = } {num_params_coef = }',
+)
 
-# tic = time.perf_counter()
-# orig_10q_block_cir_vu.instantiate(target, multistarts=num_mutlistarts, method=qfactr_gpu_instantiator)
-# full_inst_time = time.perf_counter() - tic
-# inst_dist_from_target = orig_10q_block_cir_vu.get_unitary().get_distance_from(target, 1)
+tic = time.perf_counter()
+orig_10q_block_cir_vu.instantiate(
+    target, multistarts=num_mutlistarts, method=qfactor_gpu_instantiator,
+)
+full_inst_time = time.perf_counter() - tic
+inst_dist_from_target = orig_10q_block_cir_vu.get_unitary().get_distance_from(target, 1)
 
-# print(f'full method {full_inst_time = } {inst_dist_from_target = }')
-
-# with Compiler(num_workers=num_mutlistarts+1) as compiler:
-#     task = CompilationTask(orig_10q_block_cir, [InstPass(instantiate_options, target)])
-#     tic = time.perf_counter()
-#     task_id = compiler.submit(task)
-#     circ = compiler.result(task_id) # type: ignore
-#     ceres_inst_time = time.perf_counter() - tic
-#     ceres_inst_dist_from_target = circ.get_unitary().get_distance_from(target, 1)
-
-# print(f'CERES inst {ceres_inst_time = } {ceres_inst_dist_from_target = }')
+print(f'full method {full_inst_time = } {inst_dist_from_target = }')
