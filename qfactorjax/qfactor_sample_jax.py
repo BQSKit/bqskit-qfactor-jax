@@ -549,8 +549,8 @@ def _loop_vmaped_state_sample_sweep(
 
             untrys, training_costs, validation_costs, iteration_counts, \
                 plateau_windows = loop_var
-            print(f'TRAINLOSS{i}:', training_costs)
-            print(f'VALLOSS{i}:', validation_costs)
+            _logger.debug(f'TRAINLOSS{i}: {training_costs}')
+            _logger.debug(f'VALLOSS{i}: {validation_costs}')
             i += 1
         r = loop_var
     else:
