@@ -19,7 +19,7 @@ pip install bqskit-qfactor-jax
 
 
 # Running bqskit-qfactor-jax
-Please set the environment variable XLA_PYTHON_CLIENT_PREALLOCATE=False when using this package. Also, if you encounter OOM issue consider setting XLA_PYTHON_CLIENT_ALLOCATOR=platform.
+Please set the environment variable XLA_PYTHON_CLIENT_PREALLOCATE=False when using this package. Also, if you encounter OOM issues consider setting XLA_PYTHON_CLIENT_ALLOCATOR=platform.
 
 Please take a look at the [examples](https://github.com/BQSKit/bqskit-qfactor-jax/tree/main/examples) to see some basic usage.
 
