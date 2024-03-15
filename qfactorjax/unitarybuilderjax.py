@@ -121,7 +121,7 @@ class UnitaryBuilderJax():
 
     def apply_right(
         self,
-        utry: UnitaryMatrix,
+        utry: UnitaryMatrixJax,
         location: CircuitLocationLike,
         inverse: bool = False,
         check_arguments: bool = True,
@@ -140,7 +140,7 @@ class UnitaryBuilderJax():
                  '-----'
 
         Args:
-            utry (UnitaryMatrix): The unitary to apply.
+            utry (UnitaryMatrixJax): The unitary to apply.
 
             location (CircuitLocationLike): The qudits to apply the unitary on.
 
@@ -208,7 +208,7 @@ class UnitaryBuilderJax():
 
     def apply_left(
         self,
-        utry: UnitaryMatrix,
+        utry: UnitaryMatrixJax,
         location: CircuitLocationLike,
         inverse: bool = False,
         check_arguments: bool = True,
