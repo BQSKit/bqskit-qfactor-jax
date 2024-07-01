@@ -5,6 +5,11 @@
 `bqskit-qfactor-jax` is available for Python 3.8+ on Linux.
 
 First, install JAX with GPU support, you may refer to JAX's [installation instructions](https://github.com/google/jax#installation).
+For users working on Perlmutter please use the following modules before installing JAX in your environment:
+```sh
+module load cudnn/8.9.3_cuda12
+module load nccl/2.18.3-cu12
+```
 
 Next, install this package with pip:
 
@@ -12,8 +17,9 @@ Next, install this package with pip:
 pip install bqskit-qfactor-jax
 ```
 
+
 # Running bqskit-qfactor-jax
-Please set the environment variable XLA_PYTHON_CLIENT_PREALLOCATE=False when using this package.
+Please set the environment variable XLA_PYTHON_CLIENT_PREALLOCATE=False when using this package. Also, if you encounter OOM issues consider setting XLA_PYTHON_CLIENT_ALLOCATOR=platform.
 
 Please take a look at the [examples](https://github.com/BQSKit/bqskit-qfactor-jax/tree/main/examples) to see some basic usage.
 
