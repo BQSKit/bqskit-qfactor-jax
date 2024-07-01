@@ -3,6 +3,7 @@ from __future__ import annotations
 from random import randint
 from random import sample
 
+import jax
 import jax.numpy as jnp
 import pytest
 from bqskit.ir.gates import CXGate
@@ -13,6 +14,9 @@ from qfactorjax.singlelegedtensor import LHSTensor
 from qfactorjax.singlelegedtensor import RHSTensor
 from qfactorjax.singlelegedtensor import SingleLegSideTensor
 from qfactorjax.unitarymatrixjax import UnitaryMatrixJax
+
+
+jax.config.update('jax_enable_x64', True)
 
 
 @pytest.mark.parametrize(
