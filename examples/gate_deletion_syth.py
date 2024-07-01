@@ -7,6 +7,7 @@ import os
 from timeit import default_timer as timer
 
 from bqskit import Circuit
+from bqskit import enable_logging
 from bqskit.compiler import Compiler
 from bqskit.passes import ForEachBlockPass
 from bqskit.passes import QuickPartitioner
@@ -16,6 +17,9 @@ from bqskit.passes import ToVariablePass
 from bqskit.passes import UnfoldPass
 
 from qfactorjax.qfactor import QFactorJax
+
+
+enable_logging()
 
 
 def run_gate_del_flow_example(
@@ -102,7 +106,9 @@ def run_gate_del_flow_example(
 
 if __name__ == '__main__':
 
-    in_circuit, out_circuit, run_time = run_gate_del_flow_example()
+    in_circuit, out_circuit, run_time = run_gate_del_flow_example(
+        amount_of_workers=1,
+    )
 
     print(
         f'Partitioning + Synthesis took {run_time}'
