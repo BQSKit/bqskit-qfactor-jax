@@ -1,5 +1,5 @@
-# QFactor implementation on GPUs using JAX
-`bqskit-qfactor-jax` is a Python package that implements circuit instantiation with [QFactor](https://arxiv.org/abs/2306.08152) on GPUs to accelerate [BQSKit](https://github.com/bqskit/bqskit). It uses [JAX](https://jax.readthedocs.io/en/latest/index.html) as an abstraction layer of the GPUs, seamlessly utilizing JIT compilation and GPU parallelism.
+# QFactor and QFactor-Sample implementations on GPUs using JAX
+`bqskit-qfactor-jax` is a Python package that implements circuit instantiation using the [QFactor](https://ieeexplore.ieee.org/abstract/document/10313638) and [QFactor-Sample](https://arxiv.org/abs/2405.12866) algorithms on GPUs to accelerate [BQSKit](https://github.com/bqskit/bqskit). It uses [JAX](https://jax.readthedocs.io/en/latest/index.html) as an abstraction layer of the GPUs, seamlessly utilizing JIT compilation and GPU parallelism.
 
 ## Installation
 `bqskit-qfactor-jax` is available for Python 3.8+ on Linux.
@@ -28,7 +28,11 @@ echo quit | nvidia-cuda-mps-control
 ```
 
 # References
-Kukliansky, Alon, et al. "QFactor:A Domain-Specific Optimizer for Quantum Circuit Instantiation." arXiv preprint [arXiv:2306.08152](https://arxiv.org/abs/2306.08152) (2023).
+If you are using QFactor-JAX please cite:
+Kukliansky, Alon, et al. "QFactor: A Domain-Specific Optimizer for Quantum Circuit Instantiation." 2023 IEEE International Conference on Quantum Computing and Engineering (QCE). Vol. 1. IEEE, 2023. [Link](https://ieeexplore.ieee.org/abstract/document/10313638).
+
+If you are using QFactor-Sample please cite:
+Kukliansky, Alon, et al. "Leveraging Quantum Machine Learning Generalization to Significantly Speed-up Quantum Compilation" arXiv preprint [arXiv:2405.12866](https://arxiv.org/abs/2405.12866) (2024).
 
 ## License
 The software in this repository is licensed under a **BSD free software
@@ -39,5 +43,5 @@ for more information.
 
 ## Copyright
 
-Quantum Fast Circuit Optimizer (QFactor) JAX implementation Copyright (c) 2023,
+Quantum Fast Circuit Optimizer (QFactor) JAX implementation Copyright (c) 2024,
 U.S. Federal Government and the Government of Israel. All rights reserved.
