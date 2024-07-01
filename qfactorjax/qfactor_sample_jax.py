@@ -347,12 +347,10 @@ class QFactorSampleJax(Instantiater):
             untrys: Array,
             training_states_kets: Array,
     ) -> tuple[Array, Array[float], Array[float], Array[int], Array[bool]]:
-        """
-        We couldn't find a way to check if we are going to allocate more than
-        the GPU memory, so we created this "safe" function that calls
-        qfactor-sample and then if OOM exception is caught it recursively
-        calls qfactor-sample with half the multistarts
-        """
+        """We couldn't find a way to check if we are going to allocate more than
+        the GPU memory, so we created this "safe" function that calls qfactor-
+        sample and then if OOM exception is caught it recursively calls qfactor-
+        sample with half the multistarts."""
 
         try:
             results = _jited_loop_vmaped_state_sample_sweep(
@@ -391,10 +389,11 @@ class QFactorSampleJax(Instantiater):
                 training_states_kets,
             )
 
+            # TODO: Fix the typing ignore here
             results = tuple(
                 jnp.concatenate((results1[i], results2[i]))
                 for i in range(5)
-            )
+            )  # type: ignore
 
         return results
 
