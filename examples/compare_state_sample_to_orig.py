@@ -124,7 +124,8 @@ inst_sample_dist_from_target = orig_10q_block_cir_vu.get_unitary(
 ).get_distance_from(target, 1)
 
 print(
-    f'QFactor-Sample-JAX  {sample_inst_time = } {inst_sample_dist_from_target = }'
+    f'QFactor-Sample-JAX  {sample_inst_time = } '
+    f'{inst_sample_dist_from_target = }'
     f' {num_params_coef = }',
 )
 
