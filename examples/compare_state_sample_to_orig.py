@@ -16,12 +16,16 @@ enable_logging(verbose=True)
 
 
 parser = argparse.ArgumentParser(
-    description='Arguments for performance analysis',
+    description='Comparing the re-instantiation run time of QFactor-JAX and '
+    'QFactor-Sample-JAX. Running on adder63_10q_block_28.qasm the '
+    'difference is X4, and for heisenberg64_10q_block_104.qasm '
+    'the difference is X10 and QFactor-JAX doesn\'t find a solution. '
+    'For vqe12_10q_block145.qasm the difference is X34.',
 )
 
 parser.add_argument('--input_qasm', type=str, required=True)
 parser.add_argument('--multistarts', type=int, default=32)
-parser.add_argument('--max_iters', type=int, default=300)
+parser.add_argument('--max_iters', type=int, default=6000)
 parser.add_argument('--dist_tol', type=float, default=1e-8)
 parser.add_argument('--num_params_coef', type=int, default=1)
 parser.add_argument('--exact_amount_of_sample_states', type=int)
@@ -77,14 +81,16 @@ qfactor_sample_gpu_instantiator = QFactorSampleJax(
     dist_tol=dist_tol_requested,       # Stopping criteria for distance
 
     max_iters=max_iters,      # Maximum number of iterations
-    min_iters=5,          # Minimum number of iterations
+    min_iters=6,          # Minimum number of iterations
 
     # Regularization parameter - [0.0 - 1.0]
     # Increase to overcome local minima at the price of longer compute
     beta=0.0,
 
     amount_of_validation_states=2,
-    # indicates the ratio between the sum of parameters in the circuits to the sample size.
+    # indicates the ratio between the sum of parameters in the circuits to the
+    # sample size.
+    diff_tol_r=1e-4,
     num_params_coef=num_params_coef,
     overtrain_relative_threshold=overtrain_relative_threshold,
     exact_amount_of_states_to_train_on=exact_amount_of_sample_states,
@@ -92,7 +98,8 @@ qfactor_sample_gpu_instantiator = QFactorSampleJax(
 
 
 print(
-    f'Will use {file_name} {dist_tol_requested = } {num_mutlistarts = } {num_params_coef = }',
+    f'Will use {file_name} {dist_tol_requested = } {num_mutlistarts = }'
+    f' {num_params_coef = }',
 )
 
 orig_10q_block_cir = Circuit.from_file(f'{file_name}')
@@ -117,7 +124,8 @@ inst_sample_dist_from_target = orig_10q_block_cir_vu.get_unitary(
 ).get_distance_from(target, 1)
 
 print(
-    f'sample method {sample_inst_time = } {inst_sample_dist_from_target = } {num_params_coef = }',
+    f'QFactor-Sample-JAX  {sample_inst_time = } {inst_sample_dist_from_target = }'
+    f' {num_params_coef = }',
 )
 
 tic = time.perf_counter()
@@ -125,6 +133,8 @@ orig_10q_block_cir_vu.instantiate(
     target, multistarts=num_mutlistarts, method=qfactor_gpu_instantiator,
 )
 full_inst_time = time.perf_counter() - tic
-inst_dist_from_target = orig_10q_block_cir_vu.get_unitary().get_distance_from(target, 1)
+inst_dist_from_target = orig_10q_block_cir_vu.get_unitary().get_distance_from(
+    target, 1,
+)
 
-print(f'full method {full_inst_time = } {inst_dist_from_target = }')
+print(f'QFactor-JAX {full_inst_time = } {inst_dist_from_target = }')
