@@ -34,10 +34,10 @@ echo quit | nvidia-cuda-mps-control
 ```
 
 # References
-If you are using QFactor-JAX please cite:
+If you are using QFactor-JAX please cite:\
 Kukliansky, Alon, et al. "QFactor: A Domain-Specific Optimizer for Quantum Circuit Instantiation." 2023 IEEE International Conference on Quantum Computing and Engineering (QCE). Vol. 1. IEEE, 2023. [Link](https://ieeexplore.ieee.org/abstract/document/10313638).
 
-If you are using QFactor-Sample please cite:
+If you are using QFactor-Sample please cite:\
 Kukliansky, Alon, et al. "Leveraging Quantum Machine Learning Generalization to Significantly Speed-up Quantum Compilation" arXiv preprint [arXiv:2405.12866](https://arxiv.org/abs/2405.12866) (2024).
 
 ## License
