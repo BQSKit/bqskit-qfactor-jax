@@ -7,7 +7,7 @@ of QFactor
 from __future__ import annotations
 
 import numpy as np
-from bqskit.ir.circuit import Circuit
+from bqskit import Circuit
 from bqskit.ir.gates import VariableUnitaryGate
 from bqskit.qis.unitary import UnitaryMatrix
 
