@@ -389,11 +389,10 @@ class QFactorSampleJax(Instantiater):
                 training_states_kets,
             )
 
-            # TODO: Fix the typing ignore here
             results = tuple(
                 jnp.concatenate((results1[i], results2[i]))
                 for i in range(5)
-            )  # type: ignore
+            )
 
         return results
 
